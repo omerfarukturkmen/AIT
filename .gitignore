@@ -1,0 +1,24 @@
+# Python
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# AI video files
+ai/data/input/*.mp4
+ai/data/output/*.mp4
+ai/data/input/*.mov
+ai/data/output/*.mov
+
+# Environment files
+.env
+
+# macOS
+.DS_Store
+
+# Flutter
+mobile/build/
+mobile/.dart_tool/
+mobile/.idea/
+
