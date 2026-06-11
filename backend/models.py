@@ -15,3 +15,8 @@ class Video(Base):
     id = Column(Integer, primary_key=True, index=True)
     filename = Column(String)
     owner_id = Column(Integer, ForeignKey("users.id"))
+
+    exercise_type = Column(String)
+    score = Column(Integer)
+    repetition_count = Column(Integer)
+    feedback = Column(String)

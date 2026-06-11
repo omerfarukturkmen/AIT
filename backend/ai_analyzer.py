@@ -2,7 +2,7 @@ import cv2
 import os
 
 
-def analyze_video(video_path: str):
+def analyze_video(video_path: str, exercise_type: str):
     if not os.path.exists(video_path):
         return {"status": "error", "message": "Video dosyası bulunamadı"}
 
@@ -50,11 +50,15 @@ def analyze_video(video_path: str):
         feedback = "Videoda yeterli hareket algılanamadı."
 
     return {
-        "status": "success",
-        "exercise": "general_exercise_motion",
-        "accuracy": accuracy,
-        "feedback": feedback,
+    "status": "success",
+    "exercise_name": exercise_type,
+    "score": accuracy,
+    "repetition_count": 0,
+    "errors": [],
+    "feedback": feedback,
+    "details": {
         "average_motion": round(average_motion, 2),
         "total_frames": total_frames,
         "video_path": video_path
     }
+}
