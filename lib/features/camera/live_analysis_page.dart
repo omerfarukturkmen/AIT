@@ -284,8 +284,8 @@ class _LiveAnalysisPageState extends State<LiveAnalysisPage> {
         videoBytes: videoBytes,
         fileName: videoName,
         userId: 1,
+        exerciseName: widget.exerciseName,
       );
-
       final int accuracy = backendResult.accuracy is int
           ? backendResult.accuracy
           : int.tryParse(backendResult.accuracy.toString()) ?? formScore;

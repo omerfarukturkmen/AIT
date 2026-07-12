@@ -10,6 +10,7 @@ class ApiService {
   static Future<AnalysisResult> uploadVideoBytes({
     required Uint8List videoBytes,
     required String fileName,
+    required String exerciseName,
     int userId = 1,
   }) async {
     final url = Uri.parse("${ApiConfig.baseUrl}/upload-video");
@@ -17,6 +18,10 @@ class ApiService {
     final request = http.MultipartRequest("POST", url);
 
     request.fields["user_id"] = userId.toString();
+
+    // Seçilen hareket bilgisini backend'e gönderiyoruz.
+    // Örnek: Squat -> squat
+    request.fields["exercise_type"] = exerciseName.toLowerCase();
 
     request.files.add(
       http.MultipartFile.fromBytes("file", videoBytes, filename: fileName),
@@ -27,7 +32,11 @@ class ApiService {
 
     if (response.statusCode == 200) {
       final Map<String, dynamic> data = jsonDecode(response.body);
-      final Map<String, dynamic> analysis = data["analysis"];
+
+      final Map<String, dynamic> analysis =
+          data["analysis"] is Map<String, dynamic>
+          ? data["analysis"] as Map<String, dynamic>
+          : data;
 
       return AnalysisResult.fromJson(analysis);
     } else {

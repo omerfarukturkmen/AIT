@@ -1,70 +1,103 @@
+import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
+
+import 'package:http/http.dart' as http;
 
 import '../../models/analysis_result_model.dart';
 
 class AnalysisService {
+  static const String baseUrl = 'http://127.0.0.1:8000';
+
   Future<AnalysisResult> analyzeVideo({
     required File videoFile,
     required String exerciseName,
   }) async {
-    await Future.delayed(const Duration(seconds: 3));
+    final uri = Uri.parse('$baseUrl/upload-video');
 
-    final random = Random();
+    final request = http.MultipartRequest('POST', uri);
 
-    final score = 72 + random.nextInt(20);
-    final repetitionCount = 8 + random.nextInt(8);
-    final confidence = 86 + random.nextDouble() * 10;
-
-    return AnalysisResult(
-      exerciseName: exerciseName,
-      score: score,
-      movementAngle: '${72 + random.nextInt(18)}°',
-      repetitionCount: repetitionCount,
-      confidence: double.parse(confidence.toStringAsFixed(1)),
-      duration: '00:${25 + random.nextInt(25)}',
-      mistakes: _getMistakesByExercise(exerciseName),
-      recommendations: _getRecommendationsByExercise(exerciseName),
+    request.files.add(
+      await http.MultipartFile.fromPath('video', videoFile.path),
     );
+
+    request.fields['exercise_type'] = exerciseName.toLowerCase();
+
+    try {
+      final streamedResponse = await request.send();
+      final responseBody = await streamedResponse.stream.bytesToString();
+
+      if (streamedResponse.statusCode != 200) {
+        throw Exception(
+          'Backend hata döndürdü. Status: ${streamedResponse.statusCode}, Body: $responseBody',
+        );
+      }
+
+      final Map<String, dynamic> data = jsonDecode(responseBody);
+
+      final Map<String, dynamic> analysis =
+          data['analysis'] is Map<String, dynamic>
+          ? data['analysis'] as Map<String, dynamic>
+          : data;
+
+      final accuracy = analysis['accuracy'];
+      final feedback = analysis['feedback'];
+      final averageMotion = analysis['average_motion'];
+      final totalFrames = analysis['total_frames'];
+
+      return AnalysisResult(
+        exerciseName: exerciseName,
+        score: _parseInt(accuracy),
+        movementAngle: averageMotion != null ? averageMotion.toString() : '-',
+        repetitionCount: _parseInt(totalFrames),
+        confidence: _parseDouble(accuracy),
+        duration: '-',
+        mistakes: _parseStringList(feedback),
+        recommendations: _getRecommendationsByExercise(exerciseName),
+      );
+    } on SocketException {
+      throw Exception(
+        'Backend bağlantısı kurulamadı. Backend çalışıyor mu kontrol et: $baseUrl',
+      );
+    } on FormatException {
+      throw Exception('Backend cevabı JSON formatında değil.');
+    } catch (e) {
+      throw Exception('Analiz sırasında hata oluştu: $e');
+    }
   }
 
-  List<String> _getMistakesByExercise(String exerciseName) {
-    switch (exerciseName) {
-      case 'Squat':
-        return const [
-          'Diz hizası ayak parmaklarıyla tam korunmuyor.',
-          'Gövde bazı tekrarlarda öne fazla eğiliyor.',
-          'İniş fazında kalça derinliği yetersiz kalıyor.',
-        ];
+  int _parseInt(dynamic value) {
+    if (value == null) return 0;
 
-      case 'Push-up':
-        return const [
-          'Kalça seviyesi bazı tekrarlarda aşağı düşüyor.',
-          'Dirsek açısı fazla dışa açılıyor.',
-          'Gövde stabilitesi hareket boyunca korunmuyor.',
-        ];
+    if (value is int) return value;
 
-      case 'Plank':
-        return const [
-          'Bel bölgesinde hafif çökme gözlemleniyor.',
-          'Core aktivasyonu yeterince stabil değil.',
-          'Omuz ve dirsek hizası zaman zaman bozuluyor.',
-        ];
+    if (value is double) return value.round();
 
-      case 'Lunge':
-        return const [
-          'Öndeki diz ayak hizasının dışına çıkıyor.',
-          'Denge kontrolü bazı tekrarlarda zayıf.',
-          'Gövde dik pozisyonunu tam koruyamıyor.',
-        ];
+    return int.tryParse(value.toString()) ?? 0;
+  }
 
-      default:
-        return const [
-          'Hareket sırasında eklem hizası tam korunmuyor.',
-          'Gövde kontrolü bazı anlarda zayıflıyor.',
-          'Hareket temposu fazla hızlı ilerliyor.',
-        ];
+  double _parseDouble(dynamic value) {
+    if (value == null) return 0.0;
+
+    if (value is double) return value;
+
+    if (value is int) return value.toDouble();
+
+    return double.tryParse(value.toString()) ?? 0.0;
+  }
+
+  List<String> _parseStringList(dynamic value) {
+    if (value == null) return const [];
+
+    if (value is List) {
+      return value.map((item) => item.toString()).toList();
     }
+
+    if (value is String) {
+      if (value.trim().isEmpty) return const [];
+      return [value];
+    }
+
+    return [value.toString()];
   }
 
   List<String> _getRecommendationsByExercise(String exerciseName) {

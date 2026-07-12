@@ -11,7 +11,9 @@ import '../../../widgets/premium_button.dart';
 import '../result/result_page.dart';
 
 class CameraRecordPage extends StatefulWidget {
-  const CameraRecordPage({super.key});
+  final String exerciseName;
+
+  const CameraRecordPage({super.key, required this.exerciseName});
 
   @override
   State<CameraRecordPage> createState() => _CameraRecordPageState();
@@ -113,6 +115,7 @@ class _CameraRecordPageState extends State<CameraRecordPage> {
         videoBytes: videoBytes,
         fileName: videoName,
         userId: 1,
+        exerciseName: widget.exerciseName,
       );
 
       final int accuracy = backendResult.accuracy is int
@@ -128,8 +131,7 @@ class _CameraRecordPageState extends State<CameraRecordPage> {
           : double.tryParse(backendResult.averageMotion.toString()) ?? 0.0;
 
       final String exerciseName =
-          backendResult.exercise?.toString() ?? 'general_exercise_motion';
-
+          backendResult.exercise?.toString() ?? widget.exerciseName;
       final String feedback =
           backendResult.feedback?.toString() ??
           'Analiz sonucu başarıyla alındı.';

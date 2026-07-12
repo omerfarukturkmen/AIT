@@ -9,7 +9,6 @@ import 'package:video_player/video_player.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/state/analysis_history_store.dart';
 import '../../../core/state/favorite_exercises_store.dart';
-
 import '../../../core/state/selected_exercise_store.dart';
 import '../../../data/api_service.dart';
 import '../../../data/exercise_details_data.dart';
@@ -131,6 +130,7 @@ class _HomePageState extends State<HomePage> {
         videoBytes: videoBytes,
         fileName: videoName,
         userId: 1,
+        exerciseName: selectedExercise,
       );
 
       final int accuracy = backendResult.accuracy is int
