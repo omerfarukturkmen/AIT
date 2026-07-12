@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Miscellaneous
 *.class
 *.log
@@ -43,3 +44,29 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+=======
+# Python
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# AI video files
+ai/data/input/*.mp4
+ai/data/output/*.mp4
+ai/data/input/*.mov
+ai/data/output/*.mov
+
+# Environment files
+.env
+
+# macOS
+.DS_Store
+
+# Flutter
+mobile/build/
+mobile/.dart_tool/
+mobile/.idea/
+
+>>>>>>> 18ee0f7afb14a10e926168e3474990d5178cdcd5
