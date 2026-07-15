@@ -72,3 +72,6 @@ mobile/.idea/
 >>>>>>> 18ee0f7afb14a10e926168e3474990d5178cdcd5
 
 backend/test.db
+
+backend/uploaded_videos/*
+!backend/uploaded_videos/.gitkeep
