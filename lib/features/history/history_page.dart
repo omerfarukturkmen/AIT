@@ -36,10 +36,7 @@ class HistoryPage extends StatelessWidget {
                     const SizedBox(height: 8),
                     const Text(
                       'Önceki antrenman analizlerini ve form gelişimini takip et.',
-                      style: TextStyle(
-                        color: AppColors.textSoft,
-                        height: 1.4,
-                      ),
+                      style: TextStyle(color: AppColors.textSoft, height: 1.4),
                     ),
                     const SizedBox(height: 22),
                     Row(
@@ -117,10 +114,7 @@ class HistoryPage extends StatelessWidget {
   int _calculateAverageScore(List<AnalysisResult> results) {
     if (results.isEmpty) return 0;
 
-    final total = results.fold<int>(
-      0,
-      (sum, result) => sum + result.score,
-    );
+    final total = results.fold<int>(0, (sum, result) => sum + result.score);
 
     return (total / results.length).round();
   }
@@ -150,17 +144,10 @@ class _SummaryCard extends StatelessWidget {
     return GlassCard(
       child: Column(
         children: [
-          Icon(
-            icon,
-            color: AppColors.purpleGlow,
-            size: 26,
-          ),
+          Icon(icon, color: AppColors.purpleGlow, size: 26),
           const SizedBox(height: 10),
           TweenAnimationBuilder<int>(
-            tween: IntTween(
-              begin: 0,
-              end: int.tryParse(value) ?? 0,
-            ),
+            tween: IntTween(begin: 0, end: int.tryParse(value) ?? 0),
             duration: const Duration(milliseconds: 900),
             curve: Curves.easeOutCubic,
             builder: (context, animatedValue, child) {
@@ -178,10 +165,7 @@ class _SummaryCard extends StatelessWidget {
           Text(
             title,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: AppColors.textSoft,
-              fontSize: 12,
-            ),
+            style: const TextStyle(color: AppColors.textSoft, fontSize: 12),
           ),
         ],
       ),
@@ -192,9 +176,7 @@ class _SummaryCard extends StatelessWidget {
 class _HistoryAnalysisCard extends StatelessWidget {
   final AnalysisResult result;
 
-  const _HistoryAnalysisCard({
-    required this.result,
-  });
+  const _HistoryAnalysisCard({required this.result});
 
   String get scoreLabel {
     if (result.score >= 90) return 'Excellent';
@@ -234,10 +216,7 @@ class _HistoryAnalysisCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     const Text(
                       'Video analizi • Demo AI Result',
-                      style: TextStyle(
-                        color: AppColors.textSoft,
-                        fontSize: 12,
-                      ),
+                      style: TextStyle(color: AppColors.textSoft, fontSize: 12),
                     ),
                   ],
                 ),
@@ -309,9 +288,7 @@ class _HistoryAnalysisCard extends StatelessWidget {
 class _ExerciseIconBox extends StatelessWidget {
   final String exerciseName;
 
-  const _ExerciseIconBox({
-    required this.exerciseName,
-  });
+  const _ExerciseIconBox({required this.exerciseName});
 
   IconData get icon {
     switch (exerciseName) {
@@ -335,22 +312,12 @@ class _ExerciseIconBox extends StatelessWidget {
       width: 54,
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [
-            Color(0xFF5B4B8A),
-            Color(0xFF3B2A6D),
-            Color(0xFF1F1A3D),
-          ],
+          colors: [Color(0xFF5B4B8A), Color(0xFF3B2A6D), Color(0xFF1F1A3D)],
         ),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.18),
-        ),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
       ),
-      child: Icon(
-        icon,
-        color: Colors.white,
-        size: 28,
-      ),
+      child: Icon(icon, color: Colors.white, size: 28),
     );
   }
 }
@@ -370,26 +337,16 @@ class _MiniInfo extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Icon(
-          icon,
-          color: AppColors.purpleGlow,
-          size: 20,
-        ),
+        Icon(icon, color: AppColors.purpleGlow, size: 20),
         const SizedBox(height: 6),
         Text(
           value,
-          style: const TextStyle(
-            fontWeight: FontWeight.w900,
-            fontSize: 14,
-          ),
+          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
         ),
         const SizedBox(height: 3),
         Text(
           title,
-          style: const TextStyle(
-            color: AppColors.textSoft,
-            fontSize: 11,
-          ),
+          style: const TextStyle(color: AppColors.textSoft, fontSize: 11),
         ),
       ],
     );
@@ -404,27 +361,17 @@ class _EmptyHistoryView extends StatelessWidget {
     return const GlassCard(
       child: Column(
         children: [
-          Icon(
-            Icons.history_rounded,
-            color: AppColors.textSoft,
-            size: 48,
-          ),
+          Icon(Icons.history_rounded, color: AppColors.textSoft, size: 48),
           SizedBox(height: 14),
           Text(
             'Henüz analiz geçmişi yok.',
-            style: TextStyle(
-              fontWeight: FontWeight.w900,
-              fontSize: 18,
-            ),
+            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
           ),
           SizedBox(height: 8),
           Text(
             'İlk video analizini yaptığında sonuçların burada görünecek.',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              color: AppColors.textSoft,
-              height: 1.4,
-            ),
+            style: TextStyle(color: AppColors.textSoft, height: 1.4),
           ),
         ],
       ),

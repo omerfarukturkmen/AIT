@@ -10,6 +10,7 @@ import '../exercise_detail/exercise_detail_page.dart';
 import '../../../core/state/navigation_store.dart';
 import '../../../core/state/selected_exercise_store.dart';
 import '../../../widgets/premium_button.dart';
+
 class ProgramPage extends StatelessWidget {
   const ProgramPage({super.key});
 
@@ -67,10 +68,7 @@ class ProgramPage extends StatelessWidget {
                     const SizedBox(height: 8),
                     const Text(
                       'Egzersiz planını takip et, tamamladığın günleri işaretle ve hareket detaylarını incele.',
-                      style: TextStyle(
-                        color: AppColors.textSoft,
-                        height: 1.4,
-                      ),
+                      style: TextStyle(color: AppColors.textSoft, height: 1.4),
                     ),
                     const SizedBox(height: 22),
                     _ProgressCard(
@@ -89,24 +87,22 @@ class ProgramPage extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 14),
-                    ...weeklyWorkoutPlan.map(
-                      (plan) {
-                        final isToday = plan.day == todayName;
-                        final isCompleted = completedDays.contains(plan.day);
+                    ...weeklyWorkoutPlan.map((plan) {
+                      final isToday = plan.day == todayName;
+                      final isCompleted = completedDays.contains(plan.day);
 
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 14),
-                          child: _DayPlanCard(
-                            plan: plan,
-                            isToday: isToday,
-                            isCompleted: isCompleted,
-                            onToggleCompleted: () {
-                              WorkoutProgramStore.toggleCompleted(plan.day);
-                            },
-                          ),
-                        );
-                      },
-                    ),
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 14),
+                        child: _DayPlanCard(
+                          plan: plan,
+                          isToday: isToday,
+                          isCompleted: isCompleted,
+                          onToggleCompleted: () {
+                            WorkoutProgramStore.toggleCompleted(plan.day);
+                          },
+                        ),
+                      );
+                    }),
                   ],
                 ),
               );
@@ -148,10 +144,7 @@ class _ProgressCard extends StatelessWidget {
               const Expanded(
                 child: Text(
                   'Haftalık İlerleme',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
-                  ),
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
                 ),
               ),
               Text(
@@ -179,22 +172,18 @@ class _ProgressCard extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             '$completedCount / $totalCount gün tamamlandı',
-            style: const TextStyle(
-              color: AppColors.textSoft,
-              fontSize: 13,
-            ),
+            style: const TextStyle(color: AppColors.textSoft, fontSize: 13),
           ),
         ],
       ),
     );
   }
 }
+
 class _TodayProgramCard extends StatelessWidget {
   final DailyWorkoutPlan plan;
 
-  const _TodayProgramCard({
-    required this.plan,
-  });
+  const _TodayProgramCard({required this.plan});
 
   void _startTodayAnalysis(BuildContext context) {
     if (plan.isRestDay || plan.exercises.isEmpty) {
@@ -234,10 +223,7 @@ class _TodayProgramCard extends StatelessWidget {
           const SizedBox(height: 14),
           Text(
             plan.day,
-            style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w900,
-            ),
+            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: 6),
           Text(
@@ -347,12 +333,11 @@ class _DayPlanCard extends StatelessWidget {
                     ? Icons.check_circle_rounded
                     : Icons.radio_button_unchecked_rounded,
               ),
-              label: Text(
-                isCompleted ? 'Tamamlandı' : 'Günü Tamamla',
-              ),
+              label: Text(isCompleted ? 'Tamamlandı' : 'Günü Tamamla'),
               style: OutlinedButton.styleFrom(
-                foregroundColor:
-                    isCompleted ? Colors.greenAccent : Colors.white,
+                foregroundColor: isCompleted
+                    ? Colors.greenAccent
+                    : Colors.white,
                 side: BorderSide(
                   color: isCompleted
                       ? Colors.greenAccent.withValues(alpha: 0.5)
@@ -362,9 +347,7 @@ class _DayPlanCard extends StatelessWidget {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
-                textStyle: const TextStyle(
-                  fontWeight: FontWeight.w800,
-                ),
+                textStyle: const TextStyle(fontWeight: FontWeight.w800),
               ),
             ),
           ),
@@ -377,9 +360,7 @@ class _DayPlanCard extends StatelessWidget {
 class _ExercisePlanTile extends StatelessWidget {
   final WorkoutExercise exercise;
 
-  const _ExercisePlanTile({
-    required this.exercise,
-  });
+  const _ExercisePlanTile({required this.exercise});
 
   @override
   Widget build(BuildContext context) {
@@ -388,9 +369,7 @@ class _ExercisePlanTile extends StatelessWidget {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => ExerciseDetailPage(
-              exerciseName: exercise.name,
-            ),
+            builder: (_) => ExerciseDetailPage(exerciseName: exercise.name),
           ),
         );
       },
@@ -399,9 +378,7 @@ class _ExercisePlanTile extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: 0.045),
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.09),
-          ),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.09)),
         ),
         child: Row(
           children: [
@@ -468,9 +445,7 @@ class _ExercisePlanTile extends StatelessWidget {
 class _CompactExerciseRow extends StatelessWidget {
   final WorkoutExercise exercise;
 
-  const _CompactExerciseRow({
-    required this.exercise,
-  });
+  const _CompactExerciseRow({required this.exercise});
 
   @override
   Widget build(BuildContext context) {
@@ -485,9 +460,7 @@ class _CompactExerciseRow extends StatelessWidget {
         Expanded(
           child: Text(
             '${exercise.name} • ${exercise.sets} • ${exercise.reps}',
-            style: const TextStyle(
-              fontWeight: FontWeight.w700,
-            ),
+            style: const TextStyle(fontWeight: FontWeight.w700),
           ),
         ),
       ],
@@ -505,24 +478,16 @@ class _RestDayBox extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.greenAccent.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: Colors.greenAccent.withValues(alpha: 0.22),
-        ),
+        border: Border.all(color: Colors.greenAccent.withValues(alpha: 0.22)),
       ),
       child: const Row(
         children: [
-          Icon(
-            Icons.self_improvement_rounded,
-            color: Colors.greenAccent,
-          ),
+          Icon(Icons.self_improvement_rounded, color: Colors.greenAccent),
           SizedBox(width: 10),
           Expanded(
             child: Text(
               'Bugün dinlenme ve toparlanma günü. Hafif mobilite veya yürüyüş tercih edebilirsin.',
-              style: TextStyle(
-                color: AppColors.textSoft,
-                height: 1.4,
-              ),
+              style: TextStyle(color: AppColors.textSoft, height: 1.4),
             ),
           ),
         ],
@@ -564,15 +529,9 @@ class _DayIcon extends StatelessWidget {
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.13),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: color.withValues(alpha: 0.25),
-        ),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
       ),
-      child: Icon(
-        icon,
-        color: color,
-        size: 28,
-      ),
+      child: Icon(icon, color: color, size: 28),
     );
   }
 }
@@ -582,34 +541,21 @@ class _Badge extends StatelessWidget {
   final Color color;
   final IconData icon;
 
-  const _Badge({
-    required this.text,
-    required this.color,
-    required this.icon,
-  });
+  const _Badge({required this.text, required this.color, required this.icon});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 7,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(99),
-        border: Border.all(
-          color: color.withValues(alpha: 0.30),
-        ),
+        border: Border.all(color: color.withValues(alpha: 0.30)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            color: color,
-            size: 14,
-          ),
+          Icon(icon, color: color, size: 14),
           const SizedBox(width: 5),
           Text(
             text,

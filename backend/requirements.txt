@@ -2,5 +2,6 @@ fastapi
 uvicorn
 python-multipart
 sqlalchemy
-opencv-python
-numpy
+opencv-python>=4.8.0,<5
+numpy>=1.24.0,<2
+mediapipe>=0.10.0,<0.10.30

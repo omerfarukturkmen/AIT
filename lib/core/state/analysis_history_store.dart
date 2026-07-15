@@ -1,19 +1,13 @@
 import 'package:flutter/foundation.dart';
 
-import '../../data/fake_data.dart';
 import '../../models/analysis_result_model.dart';
 
 class AnalysisHistoryStore {
   static final ValueNotifier<List<AnalysisResult>> results =
-      ValueNotifier<List<AnalysisResult>>(
-    List<AnalysisResult>.from(fakeHistory),
-  );
+      ValueNotifier<List<AnalysisResult>>(<AnalysisResult>[]);
 
   static void addResult(AnalysisResult result) {
-    results.value = [
-      result,
-      ...results.value,
-    ];
+    results.value = [result, ...results.value];
   }
 
   static void clearHistory() {

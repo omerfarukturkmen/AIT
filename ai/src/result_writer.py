@@ -5,11 +5,18 @@ from __future__ import annotations
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Any
-
-from squat_analyzer import SquatAnalyzer
+from typing import Any, Protocol
 
 RESULT_JSON_REL = "data/output/result.json"
+
+
+class _AnalyzerLike(Protocol):
+    form_status: str
+    errors: list[str]
+
+    def get_result(self, video_path: str = ...) -> dict[str, Any]: ...
+
+    def _compute_form_status(self, error_codes: list[str]) -> str: ...
 
 _DEFAULT_QUALITY_STATS: dict[str, Any] = {
     "min_pose_confidence": 0.5,
@@ -62,7 +69,7 @@ def empty_result(
 
 
 def build_result(
-    analyzer: SquatAnalyzer,
+    analyzer: _AnalyzerLike,
     video_path: str,
     *,
     extra_errors: list[str] | None = None,

@@ -16,29 +16,27 @@ final List<Exercise> exercises = [
   ),
 ];
 
+/// Demo-only samples. Do not seed [AnalysisHistoryStore] with these.
 final List<AnalysisResult> fakeHistory = [
   const AnalysisResult(
     exerciseName: 'Squat',
     score: 82,
+    riskPercent: 18,
     movementAngle: '86°',
     repetitionCount: 12,
+    validReps: 10,
+    invalidReps: 2,
     confidence: 91.4,
+    durationSeconds: 38,
     duration: '00:38',
+    totalFrames: 1140,
+    processedFrames: 1100,
+    minKneeAngle: 78,
+    averageMinKneeAngle: 82,
+    rangeOfMotion: 80,
+    selectedSide: 'right',
     mistakes: ['Diz hizası bozuluyor.', 'Gövde kontrolü zayıf.'],
     recommendations: ['Hareketi yavaşlat.', 'Diz ve ayak hizasını koru.'],
-  ),
-  const AnalysisResult(
-    exerciseName: 'Push-up',
-    score: 76,
-    movementAngle: '72°',
-    repetitionCount: 10,
-    confidence: 88.2,
-    duration: '00:31',
-    mistakes: ['Kalça seviyesi düşüyor.', 'Dirsek açısı fazla açılıyor.'],
-    recommendations: [
-      'Core bölgesini sıkı tut.',
-      'Dirsekleri gövdeye yakın tut.',
-    ],
   ),
 ];
 

@@ -158,53 +158,102 @@ def calculate_pushup_angles(
     }
 
 
+SIDE_CONFIDENCE_MIN = 0.55
+KNEE_ANGLE_DISAGREE_DEG = 18.0
+
+
+def _side_knee_measurement(
+    landmarks: _LandmarkList,
+    hip_enum: Any,
+    knee_enum: Any,
+    ankle_enum: Any,
+    image_width: int,
+    image_height: int,
+) -> tuple[float | None, float]:
+    """Return (angle_or_None, confidence 0–1) for one leg."""
+    hip = get_landmark_point(landmarks, hip_enum, image_width, image_height)
+    knee = get_landmark_point(landmarks, knee_enum, image_width, image_height)
+    ankle = get_landmark_point(landmarks, ankle_enum, image_width, image_height)
+    if hip is None or knee is None or ankle is None:
+        return None, 0.0
+    conf = (
+        float(hip["visibility"])
+        + float(knee["visibility"])
+        + float(ankle["visibility"])
+    ) / 3.0
+    if conf < SIDE_CONFIDENCE_MIN:
+        return None, conf
+    if min(hip["visibility"], knee["visibility"], ankle["visibility"]) < VISIBILITY_THRESHOLD:
+        return None, conf
+    angle = angle_between_points(
+        (hip["x"], hip["y"]),
+        (knee["x"], knee["y"]),
+        (ankle["x"], ankle["y"]),
+    )
+    return angle, conf
+
+
 def calculate_knee_angles(
     landmarks: _LandmarkList,
     pose_landmarks_enum: Any,
     image_width: int,
     image_height: int,
-) -> dict[str, float | None]:
-    """Compute left/right/average knee angles (hip–knee–ankle at knee).
+) -> dict[str, Any]:
+    """Compute left/right knee angles with side-confidence selection.
 
-    Returns None for a side if any of its three points is missing or below
-    visibility threshold (0.5). Average is mean of available sides, or None.
+    selected_side:
+      left | right | weighted_average | unavailable
+    ``average`` is the selected/combined angle used by squat analysis.
     """
     L = pose_landmarks_enum
+    left, left_conf = _side_knee_measurement(
+        landmarks, L.LEFT_HIP, L.LEFT_KNEE, L.LEFT_ANKLE, image_width, image_height
+    )
+    right, right_conf = _side_knee_measurement(
+        landmarks, L.RIGHT_HIP, L.RIGHT_KNEE, L.RIGHT_ANKLE, image_width, image_height
+    )
 
-    def side_angle(
-        hip_name: Any,
-        knee_name: Any,
-        ankle_name: Any,
-    ) -> float | None:
-        hip = get_landmark_point(landmarks, hip_name, image_width, image_height)
-        knee = get_landmark_point(landmarks, knee_name, image_width, image_height)
-        ankle = get_landmark_point(landmarks, ankle_name, image_width, image_height)
-        if hip is None or knee is None or ankle is None:
-            return None
-        if (
-            min(hip["visibility"], knee["visibility"], ankle["visibility"])
-            < VISIBILITY_THRESHOLD
-        ):
-            return None
-        return angle_between_points(
-            (hip["x"], hip["y"]),
-            (knee["x"], knee["y"]),
-            (ankle["x"], ankle["y"]),
-        )
+    left_ok = left is not None and left_conf >= SIDE_CONFIDENCE_MIN
+    right_ok = right is not None and right_conf >= SIDE_CONFIDENCE_MIN
 
-    left = side_angle(L.LEFT_HIP, L.LEFT_KNEE, L.LEFT_ANKLE)
-    right = side_angle(L.RIGHT_HIP, L.RIGHT_KNEE, L.RIGHT_ANKLE)
+    selected_side = "unavailable"
+    selected: float | None = None
+    selected_conf = 0.0
 
-    if left is not None and right is not None:
-        average = (left + right) / 2.0
-    elif left is not None:
-        average = left
-    elif right is not None:
-        average = right
-    else:
-        average = None
+    if left_ok and not right_ok:
+        selected_side = "left"
+        selected = float(left)
+        selected_conf = left_conf
+    elif right_ok and not left_ok:
+        selected_side = "right"
+        selected = float(right)
+        selected_conf = right_conf
+    elif left_ok and right_ok:
+        diff = abs(float(left) - float(right))
+        if diff > KNEE_ANGLE_DISAGREE_DEG:
+            if left_conf >= right_conf:
+                selected_side = "left"
+                selected = float(left)
+                selected_conf = left_conf
+            else:
+                selected_side = "right"
+                selected = float(right)
+                selected_conf = right_conf
+        else:
+            selected_side = "weighted_average"
+            weight = left_conf + right_conf
+            selected = (float(left) * left_conf + float(right) * right_conf) / weight
+            selected_conf = weight / 2.0
 
-    return {"left": left, "right": right, "average": average}
+    return {
+        "left": left,
+        "right": right,
+        "average": selected,
+        "selected_side": selected_side,
+        "left_confidence": round(left_conf, 4),
+        "right_confidence": round(right_conf, 4),
+        "selected_confidence": round(selected_conf, 4),
+    }
 
 
 def calculate_torso_lean_angle(
@@ -213,26 +262,35 @@ def calculate_torso_lean_angle(
     image_width: int,
     image_height: int,
 ) -> float | None:
-    """Estimate forward torso lean (degrees) from shoulder vs hip midpoint.
+    """Estimate forward torso lean using the more visible shoulder–hip side.
 
-    Returns None if landmarks are missing or not reliable enough.
+    Prefer visible side in profile shots instead of blending occluded landmarks.
     """
     L = pose_landmarks_enum
     ls = get_landmark_point(landmarks, L.LEFT_SHOULDER, image_width, image_height)
     rs = get_landmark_point(landmarks, L.RIGHT_SHOULDER, image_width, image_height)
     lh = get_landmark_point(landmarks, L.LEFT_HIP, image_width, image_height)
     rh = get_landmark_point(landmarks, L.RIGHT_HIP, image_width, image_height)
-    if None in (ls, rs, lh, rh):
-        return None
-    if min(ls["visibility"], rs["visibility"], lh["visibility"], rh["visibility"]) < (
-        VISIBILITY_THRESHOLD
-    ):
+
+    candidates: list[tuple[float, float, float, float, float]] = []
+    if ls is not None and lh is not None:
+        conf = (float(ls["visibility"]) + float(lh["visibility"])) / 2.0
+        if conf >= SIDE_CONFIDENCE_MIN:
+            candidates.append(
+                (conf, float(ls["x"]), float(ls["y"]), float(lh["x"]), float(lh["y"]))
+            )
+    if rs is not None and rh is not None:
+        conf = (float(rs["visibility"]) + float(rh["visibility"])) / 2.0
+        if conf >= SIDE_CONFIDENCE_MIN:
+            candidates.append(
+                (conf, float(rs["x"]), float(rs["y"]), float(rh["x"]), float(rh["y"]))
+            )
+
+    if not candidates:
         return None
 
-    sx = (ls["x"] + rs["x"]) / 2.0
-    sy = (ls["y"] + rs["y"]) / 2.0
-    hx = (lh["x"] + rh["x"]) / 2.0
-    hy = (lh["y"] + rh["y"]) / 2.0
+    candidates.sort(key=lambda c: c[0], reverse=True)
+    _conf, sx, sy, hx, hy = candidates[0]
     dx = sx - hx
     dy = hy - sy  # image y grows downward
     if dy <= 1.0:

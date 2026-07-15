@@ -1,12 +1,20 @@
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from database import engine, Base, SessionLocal
-from ai_analyzer import analyze_video
+from ai_analyzer import AnalysisError, analyze_video
 from auth import router as auth_router
 import models
+import logging
 import shutil
 import os
 import time
+import traceback
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+logger = logging.getLogger("backend")
 
 app = FastAPI()
 
@@ -24,6 +32,20 @@ app.add_middleware(
 
 UPLOAD_FOLDER = "uploaded_videos"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+SUPPORTED_EXERCISES = {"squat", "push-up", "pushup", "push_up"}
+
+
+def _normalize_incoming_exercise(exercise_type: str) -> str:
+    value = (exercise_type or "").strip().lower().replace("_", "-")
+    if value == "pushup":
+        value = "push-up"
+    if value not in {"squat", "push-up"}:
+        raise HTTPException(
+            status_code=400,
+            detail="Desteklenen hareketler: squat, push-up",
+        )
+    return value
 
 
 @app.get("/")
@@ -56,12 +78,11 @@ async def upload_video(
             detail="Video dosyası seçilmedi. Lütfen bir video yükleyin."
         )
 
-    if exercise_type not in ["squat", "push-up"]:
+    try:
+        exercise_type = _normalize_incoming_exercise(exercise_type)
+    except HTTPException:
         db.close()
-        raise HTTPException(
-            status_code=400,
-            detail="Desteklenen hareketler: squat, push-up"
-        )
+        raise
 
     allowed_extensions = [".mp4", ".mov", ".avi"]
     file_extension = os.path.splitext(file.filename)[1].lower()
@@ -77,6 +98,15 @@ async def upload_video(
 
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
+
+    file_size = os.path.getsize(file_path) if os.path.exists(file_path) else 0
+    logger.info(
+        "upload saved path=%s size=%s exercise_type=%s user_id=%s",
+        file_path,
+        file_size,
+        exercise_type,
+        user_id,
+    )
 
     video = models.Video(
         filename=file.filename,
@@ -103,7 +133,7 @@ async def upload_video(
     try:
         analysis_result = analyze_video(file_path, exercise_type)
 
-        if analysis_result["status"] != "success":
+        if analysis_result.get("status") != "success":
             analysis.status = "failed"
             analysis.feedback = analysis_result.get(
                 "message",
@@ -130,12 +160,26 @@ async def upload_video(
         video_id = video.id
         analysis_id = analysis.id
         analysis_status = analysis.status
+        details = analysis_result.get("details") or {}
 
         db.close()
 
-        return {
+        # Keep existing nested `data` schema and also expose Flutter legacy
+        # fields so ApiService.AnalysisResult.fromJson can read real values.
+        payload = {
             "status": "success",
             "message": "Video başarıyla analiz edildi",
+            "accuracy": analysis_result["score"],
+            "exercise": analysis_result["exercise_name"],
+            "feedback": analysis_result["feedback"],
+            "average_motion": details.get(
+                "average_motion",
+                details.get("average_movement", 0),
+            ),
+            "total_frames": details.get("total_frames", 0),
+            "score": analysis_result["score"],
+            "risk_percent": analysis_result.get("risk_percent", 0),
+            "repetition_count": analysis_result["repetition_count"],
             "data": {
                 "filename": file.filename,
                 "video_id": video_id,
@@ -143,21 +187,61 @@ async def upload_video(
                 "user_id": user_id,
                 "exercise_type": exercise_type,
                 "exercise_name": analysis_result["exercise_name"],
+                "exercise": analysis_result["exercise_name"],
                 "score": analysis_result["score"],
+                "accuracy": analysis_result["score"],
+                "risk_percent": analysis_result.get("risk_percent", 0),
                 "repetition_count": analysis_result["repetition_count"],
+                "valid_reps": analysis_result.get("valid_reps", 0),
+                "invalid_reps": analysis_result.get("invalid_reps", 0),
                 "analysis_status": analysis_status,
                 "camera_warnings": analysis_result.get("camera_warnings", []),
                 "errors": analysis_result["errors"],
                 "feedback": analysis_result["feedback"],
-                "details": analysis_result["details"],
-                "response_time_seconds": response_time
-            }
+                "average_motion": details.get(
+                    "average_motion",
+                    details.get("average_movement", 0),
+                ),
+                "total_frames": details.get("total_frames", 0),
+                "processed_frames": details.get("processed_frames", 0),
+                "landmark_frames": details.get("landmark_frames", 0),
+                "landmark_detection_ratio": details.get(
+                    "landmark_detection_ratio", 0
+                ),
+                "mean_landmark_visibility": details.get(
+                    "mean_landmark_visibility", 0
+                ),
+                "ai_confidence": details.get("ai_confidence", 0),
+                "confidence_percent": details.get("confidence_percent", 0),
+                "duration_seconds": details.get("duration_seconds", 0),
+                "min_knee_angle": details.get("min_knee_angle"),
+                "average_min_knee_angle": details.get("average_min_knee_angle"),
+                "knee_range_of_motion": details.get("knee_range_of_motion"),
+                "selected_side": details.get("selected_side", "unavailable"),
+                "rep_history": details.get("rep_history", []),
+                "details": details,
+                "response_time_seconds": response_time,
+            },
         }
+        return payload
 
     except HTTPException:
         raise
 
+    except AnalysisError as exc:
+        logger.error("AnalysisError: %s\n%s", exc.message, traceback.format_exc())
+        analysis.status = "failed"
+        analysis.feedback = exc.message
+        db.commit()
+        db.close()
+
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail=exc.message,
+        )
+
     except Exception:
+        logger.error("Unexpected upload-video error\n%s", traceback.format_exc())
         analysis.status = "failed"
         analysis.feedback = "Analiz sırasında beklenmeyen bir hata oluştu"
         db.commit()
@@ -275,12 +359,11 @@ def get_filtered_analysis_history(exercise_type: str | None = None):
     )
 
     if exercise_type:
-        if exercise_type not in ["squat", "push-up"]:
+        try:
+            exercise_type = _normalize_incoming_exercise(exercise_type)
+        except HTTPException:
             db.close()
-            raise HTTPException(
-                status_code=400,
-                detail="Desteklenen filtreler: squat, push-up"
-            )
+            raise
 
         query = query.filter(models.AnalysisResult.exercise_type == exercise_type)
 
@@ -317,11 +400,7 @@ def live_analysis(
 ):
     start_time = time.time()
 
-    if exercise_type not in ["squat", "push-up"]:
-        raise HTTPException(
-            status_code=400,
-            detail="Desteklenen hareketler: squat, push-up"
-        )
+    exercise_type = _normalize_incoming_exercise(exercise_type)
 
     if not frame_data:
         raise HTTPException(

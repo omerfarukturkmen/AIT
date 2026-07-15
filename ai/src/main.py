@@ -23,7 +23,14 @@ def main() -> None:
         help="Exercise type to analyze (default: squat)",
     )
     args = parser.parse_args()
-    analyze_video(video_path=args.video, exercise_type=args.exercise)
+    result = analyze_video(video_path=args.video, exercise_type=args.exercise)
+    metrics = result.get("metrics") or {}
+    ai = result.get("ai_result") or {}
+    print(
+        f"exercise={ai.get('exercise')} reps={ai.get('rep_count')} "
+        f"frames={metrics.get('total_frames')} "
+        f"processed={metrics.get('processed_frames')}"
+    )
 
 
 if __name__ == "__main__":

@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../data/api_service.dart';
 import '../../../main.dart';
-import '../../../models/analysis_result_model.dart';
 import '../../../widgets/glass_card.dart';
 import '../../../widgets/premium_background.dart';
 import '../../../widgets/premium_button.dart';
@@ -111,52 +110,11 @@ class _CameraRecordPageState extends State<CameraRecordPage> {
           ? video.name
           : 'exercise_video.mp4';
 
-      final dynamic backendResult = await ApiService.uploadVideoBytes(
+      final result = await ApiService.uploadVideoBytes(
         videoBytes: videoBytes,
         fileName: videoName,
         userId: 1,
         exerciseName: widget.exerciseName,
-      );
-
-      final int accuracy = backendResult.accuracy is int
-          ? backendResult.accuracy
-          : int.tryParse(backendResult.accuracy.toString()) ?? 0;
-
-      final int totalFrames = backendResult.totalFrames is int
-          ? backendResult.totalFrames
-          : int.tryParse(backendResult.totalFrames.toString()) ?? 0;
-
-      final double averageMotion = backendResult.averageMotion is double
-          ? backendResult.averageMotion
-          : double.tryParse(backendResult.averageMotion.toString()) ?? 0.0;
-
-      final String exerciseName =
-          backendResult.exercise?.toString() ?? widget.exerciseName;
-      final String feedback =
-          backendResult.feedback?.toString() ??
-          'Analiz sonucu başarıyla alındı.';
-
-      final AnalysisResult result = AnalysisResult(
-        exerciseName: exerciseName,
-        score: accuracy,
-        repetitionCount: totalFrames,
-        confidence: accuracy.toDouble(),
-        duration: '$totalFrames frame',
-        movementAngle: averageMotion.toStringAsFixed(2),
-        mistakes: accuracy >= 75
-            ? [
-                'Belirgin form hatası algılanmadı.',
-                'Hareket genel olarak başarılı görünüyor.',
-              ]
-            : [
-                'Hareket formunda teknik hata olabilir.',
-                'Hareket daha kontrollü yapılmalıdır.',
-              ],
-        recommendations: [
-          feedback,
-          'Ortalama hareket değeri: ${averageMotion.toStringAsFixed(2)}',
-          'Toplam analiz edilen frame sayısı: $totalFrames',
-        ],
       );
 
       if (!mounted) return;

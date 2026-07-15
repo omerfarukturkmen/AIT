@@ -19,9 +19,9 @@ class ResultPage extends StatelessWidget {
   }
 
   String get riskLevel {
-    if (result.score >= 90) return 'Very Low Risk';
-    if (result.score >= 75) return 'Low Risk';
-    if (result.score >= 50) return 'Medium Risk';
+    if (result.riskPercent <= 10) return 'Very Low Risk';
+    if (result.riskPercent <= 25) return 'Low Risk';
+    if (result.riskPercent <= 50) return 'Medium Risk';
     return 'High Risk';
   }
 
@@ -75,7 +75,7 @@ class ResultPage extends StatelessWidget {
                 _RiskLevelCard(
                   riskLevel: riskLevel,
                   scoreColor: scoreColor,
-                  score: result.score,
+                  riskPercent: result.riskPercent,
                 ),
                 const SizedBox(height: 16),
                 _MetricsGrid(result: result),
@@ -278,12 +278,12 @@ class _ScoreReportCard extends StatelessWidget {
 class _RiskLevelCard extends StatelessWidget {
   final String riskLevel;
   final Color scoreColor;
-  final int score;
+  final int riskPercent;
 
   const _RiskLevelCard({
     required this.riskLevel,
     required this.scoreColor,
-    required this.score,
+    required this.riskPercent,
   });
 
   @override
@@ -327,7 +327,7 @@ class _RiskLevelCard extends StatelessWidget {
             ),
           ),
           Text(
-            '$score%',
+            '$riskPercent%',
             style: TextStyle(
               color: scoreColor,
               fontSize: 22,
@@ -345,6 +345,16 @@ class _MetricsGrid extends StatelessWidget {
 
   const _MetricsGrid({required this.result});
 
+  String get _depthValue {
+    if (result.averageMinKneeAngle != null) {
+      return '${result.averageMinKneeAngle!.toStringAsFixed(1)}°';
+    }
+    if (result.minKneeAngle != null) {
+      return '${result.minKneeAngle!.toStringAsFixed(1)}°';
+    }
+    return result.movementAngle.isNotEmpty ? result.movementAngle : '-';
+  }
+
   @override
   Widget build(BuildContext context) {
     return GlassCard(
@@ -361,15 +371,15 @@ class _MetricsGrid extends StatelessWidget {
               Expanded(
                 child: _MetricItem(
                   icon: Icons.repeat_rounded,
-                  title: 'Frame',
+                  title: 'Tekrar',
                   value: '${result.repetitionCount}',
                 ),
               ),
               Expanded(
                 child: _MetricItem(
                   icon: Icons.psychology_rounded,
-                  title: 'AI Güveni',
-                  value: '${result.confidence}%',
+                  title: 'Poz Güveni',
+                  value: '${result.confidence.toStringAsFixed(1)}%',
                 ),
               ),
             ],
@@ -387,8 +397,27 @@ class _MetricsGrid extends StatelessWidget {
               Expanded(
                 child: _MetricItem(
                   icon: Icons.architecture_rounded,
-                  title: 'Ortalama Hareket',
-                  value: result.movementAngle,
+                  title: 'Ort. Min. Diz',
+                  value: _depthValue,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: _MetricItem(
+                  icon: Icons.filter_frames_rounded,
+                  title: 'İşlenen Frame',
+                  value: '${result.processedFrames}/${result.totalFrames}',
+                ),
+              ),
+              Expanded(
+                child: _MetricItem(
+                  icon: Icons.check_circle_outline_rounded,
+                  title: 'Geçerli / Geçersiz',
+                  value: '${result.validReps}/${result.invalidReps}',
                 ),
               ),
             ],

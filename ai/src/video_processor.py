@@ -12,11 +12,13 @@ import mediapipe as mp
 from angle_utils import (
     calculate_knee_angles,
     calculate_pose_confidence,
+    calculate_pushup_angles,
     calculate_torso_lean_angle,
     check_camera_distance,
     estimate_body_bbox,
     get_landmark_point,
 )
+from pushup_analyzer import PushupAnalyzer
 from result_writer import build_result, empty_result, write_result_json
 from squat_analyzer import SquatAnalyzer
 
@@ -40,6 +42,14 @@ class VideoProcessor:
         self.output_path = output_path
 
 
+class VideoValidationError(Exception):
+    """Raised when an input video cannot be opened or read."""
+
+
+class UnsupportedExerciseError(ValueError):
+    """Raised when exercise_type is not supported."""
+
+
 def _new_quality_stats() -> dict[str, Any]:
     return deepcopy(_DEFAULT_QUALITY_STATS)
 
@@ -55,6 +65,22 @@ def _squat_pose_landmark_indices(pose_landmark_enum: object) -> tuple[Any, ...]:
         L.RIGHT_ANKLE,
         L.LEFT_SHOULDER,
         L.RIGHT_SHOULDER,
+    )
+
+
+def _pushup_pose_landmark_indices(pose_landmark_enum: object) -> tuple[Any, ...]:
+    L = pose_landmark_enum
+    return (
+        L.LEFT_SHOULDER,
+        L.LEFT_ELBOW,
+        L.LEFT_WRIST,
+        L.RIGHT_SHOULDER,
+        L.RIGHT_ELBOW,
+        L.RIGHT_WRIST,
+        L.LEFT_HIP,
+        L.RIGHT_HIP,
+        L.LEFT_ANKLE,
+        L.RIGHT_ANKLE,
     )
 
 
@@ -162,6 +188,38 @@ def _draw_squat_hud(frame: object, analysis: dict) -> None:
         )
 
 
+def _draw_pushup_hud(frame: object, analysis: dict) -> None:
+    y0 = 28
+    line_h = 28
+    font_scale = 0.68
+    ea = analysis.get("elbowAngle") or {}
+    smooth = ea.get("average") or ea.get("smoothedAverage")
+    fb_list = analysis.get("feedback") or []
+    fb = fb_list[0] if fb_list else ""
+
+    lines = [
+        f"Rep Count: {analysis.get('rep_count', analysis.get('repCount', 0))}",
+        f"Valid Reps: {analysis.get('valid_reps', 0)}",
+        f"Invalid Reps: {analysis.get('invalid_reps', 0)}",
+        f"State: {analysis.get('current_state', analysis.get('currentPhase', 'unknown'))}",
+        f"Smooth Elbow: {smooth:.1f}" if smooth is not None else "Smooth Elbow: --",
+        f"Form: {analysis.get('form_status', 'good')}",
+    ]
+    if fb:
+        lines.append(f"Feedback: {fb}")
+    for i, text in enumerate(lines):
+        cv2.putText(
+            frame,
+            text,
+            (12, y0 + i * line_h),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            font_scale,
+            (255, 255, 255),
+            2,
+            cv2.LINE_AA,
+        )
+
+
 def _draw_quality_overlay(
     frame: object,
     *,
@@ -193,22 +251,39 @@ def _draw_quality_overlay(
 
 
 def normalize_exercise_type(exercise_type: str) -> str:
-    """Normalize CLI/backend exercise identifiers."""
-    normalized = exercise_type.strip().lower()
-    if normalized == "push-up":
-        return "pushup"
+    """Normalize CLI/backend exercise identifiers to canonical keys."""
+    normalized = (exercise_type or "").strip().lower().replace("_", "-")
+    aliases = {
+        "squat": "squat",
+        "push-up": "pushup",
+        "pushup": "pushup",
+        "push up": "pushup",
+    }
+    if normalized not in aliases:
+        raise UnsupportedExerciseError(
+            f"Unsupported exercise_type: {exercise_type}. "
+            "Supported values: squat, push-up"
+        )
+    return aliases[normalized]
+
+
+def display_exercise_name(normalized: str) -> str:
+    if normalized == "pushup":
+        return "push-up"
     return normalized
 
 
-def _create_analyzer(exercise_type: str) -> SquatAnalyzer:
+def _create_analyzer(
+    exercise_type: str,
+    *,
+    fps: float = 30.0,
+) -> SquatAnalyzer | PushupAnalyzer:
     normalized = normalize_exercise_type(exercise_type)
     if normalized == "squat":
-        return SquatAnalyzer()
+        return SquatAnalyzer(fps=fps)
     if normalized == "pushup":
-        raise NotImplementedError(
-            "Push-up analyzer is not implemented yet. Angle utilities are ready."
-        )
-    raise ValueError(f"Unsupported exercise_type: {exercise_type}")
+        return PushupAnalyzer()
+    raise UnsupportedExerciseError(f"Unsupported exercise_type: {exercise_type}")
 
 
 def _resolve_video_path(project_root: Path, video_path: str) -> Path:
@@ -218,33 +293,94 @@ def _resolve_video_path(project_root: Path, video_path: str) -> Path:
     return project_root / path
 
 
-def analyze_video(
+def _elbow_angles_from_pushup(pushup_angles: dict[str, float | None]) -> dict[str, float | None]:
+    return {
+        "left": pushup_angles.get("left_elbow"),
+        "right": pushup_angles.get("right_elbow"),
+        "average": pushup_angles.get("avg_elbow"),
+    }
+
+
+def _build_camera_warnings(quality_stats: dict[str, Any], total_frames: int) -> list[str]:
+    warnings: list[str] = []
+    if total_frames <= 0:
+        return ["Video frame okunamadi."]
+    far = quality_stats.get("camera_too_far_frames", 0)
+    close = quality_stats.get("camera_too_close_frames", 0)
+    low = quality_stats.get("low_confidence_frames", 0)
+    if far / total_frames > 0.3:
+        warnings.append("Kamera cok uzakta; daha yakina gelin.")
+    if close / total_frames > 0.3:
+        warnings.append("Kamera cok yakinda; biraz uzaklasin.")
+    if low / total_frames > 0.4:
+        warnings.append("Pose guveni dusuk; vucudunuzun tamamini kadraja alin.")
+    return warnings
+
+
+def run_video_analysis(
     video_path: str = SOURCE_VIDEO_REL,
     exercise_type: str = "squat",
-) -> None:
-    """Run pose-based exercise analysis on a video file."""
-    exercise_type = normalize_exercise_type(exercise_type)
+    *,
+    show_preview: bool = False,
+    write_json: bool = True,
+) -> dict[str, Any]:
+    """Run pose-based exercise analysis and return a structured result dict.
+
+    Raises:
+        FileNotFoundError: video path does not exist
+        VideoValidationError: video cannot be opened or has no readable frames
+        UnsupportedExerciseError: unsupported exercise type
+    """
+    exercise_key = normalize_exercise_type(exercise_type)
+    exercise_name = display_exercise_name(exercise_key)
     project_root = Path(__file__).resolve().parent.parent
     resolved_video = _resolve_video_path(project_root, video_path)
 
-    analyzer = _create_analyzer(exercise_type)
+    if not resolved_video.exists():
+        raise FileNotFoundError(f"Video dosyasi bulunamadi: {resolved_video}")
+
+    file_size = resolved_video.stat().st_size
+    if file_size <= 0:
+        raise VideoValidationError(f"Video dosyasi bos: {resolved_video}")
+
     quality_stats = _new_quality_stats()
     cap: cv2.VideoCapture | None = None
-    load_error: str | None = None
-    load_feedback: list[str] = []
     analyzed_frames = 0
+    total_frames = 0
+    landmark_frames = 0
+    confidence_sum = 0.0
+    motion_sum = 0.0
+    prev_gray = None
     last_analysis: dict | None = None
+    fps = 0.0
+    selected_side_counts: dict[str, int] = {}
+    analyzer: SquatAnalyzer | PushupAnalyzer | None = None
+    reported_frame_count = 0
 
     try:
         cap = cv2.VideoCapture(str(resolved_video))
         if not cap.isOpened():
-            load_error = "video_load_error"
-            load_feedback = ["Video dosyasi acilamadi."]
-            raise RuntimeError(f"Video acilamadi: {resolved_video}")
+            raise VideoValidationError(f"Video acilamadi: {resolved_video}")
+
+        fps = float(cap.get(cv2.CAP_PROP_FPS) or 0.0)
+        reported_frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+        analyzer = _create_analyzer(exercise_key, fps=fps if fps > 1e-3 else 30.0)
+
+        # Validate at least one frame is readable before full analysis.
+        ok, first_frame = cap.read()
+        if not ok or first_frame is None:
+            raise VideoValidationError(
+                f"Videodan frame okunamadi: {resolved_video}"
+            )
+        cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
 
         mp_pose = mp.solutions.pose
         mp_drawing = mp.solutions.drawing_utils
-        squat_landmarks = _squat_pose_landmark_indices(mp_pose.PoseLandmark)
+        landmark_indices = (
+            _squat_pose_landmark_indices(mp_pose.PoseLandmark)
+            if exercise_key == "squat"
+            else _pushup_pose_landmark_indices(mp_pose.PoseLandmark)
+        )
 
         window = "AIT video test"
         with mp_pose.Pose(
@@ -259,6 +395,12 @@ def analyze_video(
                 if not ok:
                     break
 
+                total_frames += 1
+                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                if prev_gray is not None:
+                    motion_sum += float(cv2.absdiff(prev_gray, gray).mean())
+                prev_gray = gray
+
                 rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 rgb.flags.writeable = False
                 results = pose.process(rgb)
@@ -269,11 +411,13 @@ def analyze_video(
                 low_confidence = False
 
                 if results.pose_landmarks:
+                    landmark_frames += 1
                     plm = results.pose_landmarks
                     L = mp_pose.PoseLandmark
                     h, w = frame.shape[:2]
 
-                    pose_confidence = calculate_pose_confidence(plm, squat_landmarks)
+                    pose_confidence = calculate_pose_confidence(plm, landmark_indices)
+                    confidence_sum += pose_confidence
                     body_bbox = estimate_body_bbox(plm, w, h)
                     camera_info = check_camera_distance(body_bbox, h)
                     camera_label = _camera_display_label(camera_info["status"])
@@ -284,68 +428,138 @@ def analyze_video(
                     )
                     low_confidence = pose_confidence < MIN_POSE_CONFIDENCE
 
-                    mp_drawing.draw_landmarks(
-                        frame,
-                        results.pose_landmarks,
-                        mp_pose.POSE_CONNECTIONS,
-                    )
-
-                    knee_angles = calculate_knee_angles(plm, L, w, h)
-                    if (
-                        exercise_type == "squat"
-                        and not low_confidence
-                        and knee_angles.get("average") is not None
-                    ):
-                        torso_lean = calculate_torso_lean_angle(plm, L, w, h)
-                        analysis = analyzer.analyze_frame(
-                            knee_angles,
-                            pose_confidence=pose_confidence,
-                            torso_lean=torso_lean,
+                    if show_preview:
+                        mp_drawing.draw_landmarks(
+                            frame,
+                            results.pose_landmarks,
+                            mp_pose.POSE_CONNECTIONS,
                         )
-                        last_analysis = analysis
-                        analyzed_frames += 1
-                        _draw_squat_hud(frame, analysis)
-                        _draw_knee_labels(frame, plm, L, w, h, analysis)
-                    elif exercise_type == "squat" and last_analysis is not None:
-                        _draw_squat_hud(frame, last_analysis)
 
-                _draw_quality_overlay(
-                    frame,
-                    pose_confidence=pose_confidence,
-                    camera_label=camera_label,
-                    low_confidence=low_confidence,
-                )
+                    if exercise_key == "squat":
+                        knee_angles = calculate_knee_angles(plm, L, w, h)
+                        side = str(knee_angles.get("selected_side") or "unavailable")
+                        selected_side_counts[side] = (
+                            selected_side_counts.get(side, 0) + 1
+                        )
+                        if (
+                            not low_confidence
+                            and knee_angles.get("average") is not None
+                        ):
+                            torso_lean = calculate_torso_lean_angle(plm, L, w, h)
+                            analysis = analyzer.analyze_frame(
+                                knee_angles,
+                                pose_confidence=pose_confidence,
+                                torso_lean=torso_lean,
+                                fps=fps if fps > 1e-3 else 30.0,
+                            )
+                            last_analysis = analysis
+                            analyzed_frames += 1
+                            if show_preview:
+                                _draw_squat_hud(frame, analysis)
+                                _draw_knee_labels(frame, plm, L, w, h, analysis)
+                        elif show_preview and last_analysis is not None:
+                            _draw_squat_hud(frame, last_analysis)
+                    else:
+                        pushup_angles = calculate_pushup_angles(plm, w, h)
+                        elbow_angles = _elbow_angles_from_pushup(pushup_angles)
+                        if (
+                            not low_confidence
+                            and elbow_angles.get("average") is not None
+                        ):
+                            analysis = analyzer.analyze_frame(
+                                elbow_angles,
+                                pose_confidence=pose_confidence,
+                                hip_alignment=pushup_angles.get("avg_hip"),
+                            )
+                            last_analysis = analysis
+                            analyzed_frames += 1
+                            if show_preview:
+                                _draw_pushup_hud(frame, analysis)
+                        elif show_preview and last_analysis is not None:
+                            _draw_pushup_hud(frame, last_analysis)
 
-                cv2.imshow(window, frame)
-                if cv2.waitKey(1) & 0xFF == ord("q"):
-                    break
+                if show_preview:
+                    _draw_quality_overlay(
+                        frame,
+                        pose_confidence=pose_confidence,
+                        camera_label=camera_label,
+                        low_confidence=low_confidence,
+                    )
+                    cv2.imshow(window, frame)
+                    if cv2.waitKey(1) & 0xFF == ord("q"):
+                        break
     finally:
         if cap is not None:
             cap.release()
-        cv2.destroyAllWindows()
+        if show_preview:
+            cv2.destroyAllWindows()
 
-        extra_errors = [load_error] if load_error else None
-        if load_error and analyzed_frames == 0:
-            result = empty_result(
-                video_path,
-                extra_errors=extra_errors,
-                extra_feedback=load_feedback,
-                quality_stats=quality_stats,
-            )
-        else:
-            result = build_result(
-                analyzer,
-                video_path,
-                extra_errors=extra_errors,
-                extra_feedback=load_feedback if load_error else None,
-                quality_stats=quality_stats,
-            )
-        write_result_json(project_root, result)
+    if total_frames == 0:
+        raise VideoValidationError(f"Videodan frame okunamadi: {resolved_video}")
 
-    if load_error:
-        raise RuntimeError(f"Video acilamadi: {resolved_video}")
+    if analyzer is None:
+        raise VideoValidationError(f"Video analizi baslatilamadi: {resolved_video}")
+
+    ai_result = build_result(
+        analyzer,
+        str(resolved_video),
+        quality_stats=quality_stats,
+    )
+    if write_json:
+        write_result_json(project_root, ai_result)
+
+    average_motion = motion_sum / total_frames if total_frames else 0.0
+    landmark_ratio = landmark_frames / total_frames if total_frames else 0.0
+    mean_landmark_visibility = (
+        confidence_sum / landmark_frames if landmark_frames else 0.0
+    )
+    duration_seconds = (
+        round(total_frames / fps, 3) if fps > 1e-3 else round(total_frames / 30.0, 3)
+    )
+    camera_warnings = _build_camera_warnings(quality_stats, total_frames)
+
+    dominant_side = "unavailable"
+    if selected_side_counts:
+        dominant_side = max(selected_side_counts.items(), key=lambda kv: kv[1])[0]
+    if not ai_result.get("selected_side") or ai_result.get("selected_side") == "unavailable":
+        ai_result["selected_side"] = dominant_side
+
+    return {
+        "exercise": exercise_name,
+        "ai_result": ai_result,
+        "metrics": {
+            "file_size_bytes": file_size,
+            "total_frames": total_frames,
+            "reported_frame_count": reported_frame_count,
+            "processed_frames": analyzed_frames,
+            "landmark_frames": landmark_frames,
+            "landmark_detection_ratio": round(landmark_ratio, 4),
+            "mean_landmark_visibility": round(mean_landmark_visibility, 4),
+            "ai_confidence": round(mean_landmark_visibility, 4),
+            "average_movement": round(average_motion, 2),
+            "duration_seconds": duration_seconds,
+            "fps": round(fps, 2),
+            "camera_warnings": camera_warnings,
+            "quality": quality_stats,
+            "selected_side": dominant_side,
+            "video_path": str(resolved_video),
+        },
+    }
 
 
-def run_video_test_pipeline() -> None:
+def analyze_video(
+    video_path: str = SOURCE_VIDEO_REL,
+    exercise_type: str = "squat",
+) -> dict[str, Any]:
+    """CLI-oriented entry: preview window enabled, returns analysis payload."""
+    return run_video_analysis(
+        video_path=video_path,
+        exercise_type=exercise_type,
+        show_preview=True,
+        write_json=True,
+    )
+
+
+def run_video_test_pipeline() -> dict[str, Any]:
     """Backward-compatible entry: default squat video pipeline."""
     return analyze_video(video_path=SOURCE_VIDEO_REL, exercise_type="squat")
