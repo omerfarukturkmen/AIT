@@ -5,18 +5,9 @@ from __future__ import annotations
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any
 
 RESULT_JSON_REL = "data/output/result.json"
-
-
-class _AnalyzerLike(Protocol):
-    form_status: str
-    errors: list[str]
-
-    def get_result(self, video_path: str = ...) -> dict[str, Any]: ...
-
-    def _compute_form_status(self, error_codes: list[str]) -> str: ...
 
 _DEFAULT_QUALITY_STATS: dict[str, Any] = {
     "min_pose_confidence": 0.5,
@@ -69,22 +60,46 @@ def empty_result(
 
 
 def build_result(
-    analyzer: _AnalyzerLike,
-    video_path: str,
+    analyzer: Any,
+    video_path: str | None = None,
     *,
     extra_errors: list[str] | None = None,
     extra_feedback: list[str] | None = None,
     quality_stats: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Collect analyzer state into the fixed backend schema."""
-    result = analyzer.get_result(video_path=video_path)
-    for code in extra_errors or []:
-        if code and code not in result["errors"]:
-            result["errors"].append(code)
-    for msg in extra_feedback or []:
-        if msg and msg not in result["feedback"]:
-            result["feedback"].append(msg)
-    result["form_status"] = analyzer._compute_form_status(result["errors"])
+    """Collect analyzer state into JSON. Supports squat and push-up analyzers."""
+    if hasattr(analyzer, "get_result"):
+        try:
+            result = analyzer.get_result(video_path=video_path or "data/input/input.mp4")
+        except TypeError:
+            result = analyzer.get_result()
+    else:
+        result = empty_result(
+            video_path or "data/input/input.mp4",
+            extra_errors=extra_errors,
+            extra_feedback=extra_feedback,
+            quality_stats=quality_stats,
+        )
+
+    if not isinstance(result, dict):
+        result = {}
+
+    # Preserve squat error/feedback merge when those keys exist.
+    if "errors" in result:
+        for code in extra_errors or []:
+            if code and code not in result["errors"]:
+                result["errors"].append(code)
+    if "feedback" in result:
+        for msg in extra_feedback or []:
+            if msg and msg not in result["feedback"]:
+                result["feedback"].append(msg)
+
+    if hasattr(analyzer, "_compute_form_status") and "errors" in result:
+        try:
+            result["form_status"] = analyzer._compute_form_status(result["errors"])
+        except Exception:
+            pass
+
     result["quality"] = _normalize_quality_stats(quality_stats)
     return result
 

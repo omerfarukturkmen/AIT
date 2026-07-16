@@ -188,25 +188,55 @@ def _draw_squat_hud(frame: object, analysis: dict) -> None:
         )
 
 
-def _draw_pushup_hud(frame: object, analysis: dict) -> None:
+def _draw_pushup_hud(
+    frame: object,
+    analyzer: PushupAnalyzer,
+    pose_confidence: float | None,
+    camera_distance: dict[str, Any] | None,
+) -> None:
+    """Draw push-up HUD with safe formatting for None values."""
     y0 = 28
     line_h = 28
-    font_scale = 0.68
-    ea = analysis.get("elbowAngle") or {}
-    smooth = ea.get("average") or ea.get("smoothedAverage")
-    fb_list = analysis.get("feedback") or []
+    font_scale = 0.65
+    angles = getattr(analyzer, "current_angles", {}) or {}
+    fb_list = getattr(analyzer, "feedback", None) or []
     fb = fb_list[0] if fb_list else ""
 
+    def _fmt_angle(value: Any) -> str:
+        if value is None:
+            return "N/A"
+        try:
+            return f"{float(value):.1f}"
+        except (TypeError, ValueError):
+            return "N/A"
+
+    cam_status = (camera_distance or {}).get("status", "unknown")
+    if cam_status == "good":
+        cam_label = "OK"
+    elif cam_status == "too_far":
+        cam_label = "Too far"
+    elif cam_status == "too_close":
+        cam_label = "Too close"
+    else:
+        cam_label = "Unknown"
+
+    conf_label = (
+        f"{float(pose_confidence):.2f}" if pose_confidence is not None else "N/A"
+    )
+
     lines = [
-        f"Rep Count: {analysis.get('rep_count', analysis.get('repCount', 0))}",
-        f"Valid Reps: {analysis.get('valid_reps', 0)}",
-        f"Invalid Reps: {analysis.get('invalid_reps', 0)}",
-        f"State: {analysis.get('current_state', analysis.get('currentPhase', 'unknown'))}",
-        f"Smooth Elbow: {smooth:.1f}" if smooth is not None else "Smooth Elbow: --",
-        f"Form: {analysis.get('form_status', 'good')}",
+        "Exercise: Push-up",
+        f"Reps: {getattr(analyzer, 'rep_count', 0)}",
+        f"State: {getattr(analyzer, 'state', 'up')}",
+        f"Elbow: {_fmt_angle(angles.get('avg_elbow'))}",
+        f"Shoulder: {_fmt_angle(angles.get('avg_shoulder'))}",
+        f"Hip: {_fmt_angle(angles.get('avg_hip'))}",
+        f"Pose Conf: {conf_label}",
+        f"Camera: {cam_label}",
     ]
     if fb:
         lines.append(f"Feedback: {fb}")
+
     for i, text in enumerate(lines):
         cv2.putText(
             frame,
@@ -218,6 +248,10 @@ def _draw_pushup_hud(frame: object, analysis: dict) -> None:
             2,
             cv2.LINE_AA,
         )
+
+
+# Backward-compatible alias used by older call sites.
+draw_pushup_hud = _draw_pushup_hud
 
 
 def _draw_quality_overlay(
@@ -253,18 +287,13 @@ def _draw_quality_overlay(
 def normalize_exercise_type(exercise_type: str) -> str:
     """Normalize CLI/backend exercise identifiers to canonical keys."""
     normalized = (exercise_type or "").strip().lower().replace("_", "-")
-    aliases = {
-        "squat": "squat",
-        "push-up": "pushup",
-        "pushup": "pushup",
-        "push up": "pushup",
-    }
-    if normalized not in aliases:
-        raise UnsupportedExerciseError(
-            f"Unsupported exercise_type: {exercise_type}. "
-            "Supported values: squat, push-up"
-        )
-    return aliases[normalized]
+    if normalized == "push-up":
+        normalized = "pushup"
+    if normalized == "push up":
+        normalized = "pushup"
+    if normalized not in ("squat", "pushup"):
+        raise ValueError(f"Unsupported exercise_type: {exercise_type}")
+    return normalized
 
 
 def display_exercise_name(normalized: str) -> str:
@@ -283,7 +312,7 @@ def _create_analyzer(
         return SquatAnalyzer(fps=fps)
     if normalized == "pushup":
         return PushupAnalyzer()
-    raise UnsupportedExerciseError(f"Unsupported exercise_type: {exercise_type}")
+    raise ValueError(f"Unsupported exercise_type: {exercise_type}")
 
 
 def _resolve_video_path(project_root: Path, video_path: str) -> Path:
@@ -459,24 +488,23 @@ def run_video_analysis(
                                 _draw_knee_labels(frame, plm, L, w, h, analysis)
                         elif show_preview and last_analysis is not None:
                             _draw_squat_hud(frame, last_analysis)
-                    else:
+                    elif exercise_key == "pushup":
+                        assert isinstance(analyzer, PushupAnalyzer)
                         pushup_angles = calculate_pushup_angles(plm, w, h)
-                        elbow_angles = _elbow_angles_from_pushup(pushup_angles)
-                        if (
-                            not low_confidence
-                            and elbow_angles.get("average") is not None
-                        ):
-                            analysis = analyzer.analyze_frame(
-                                elbow_angles,
-                                pose_confidence=pose_confidence,
-                                hip_alignment=pushup_angles.get("avg_hip"),
+                        analysis = analyzer.analyze_frame(
+                            pushup_angles,
+                            pose_confidence=pose_confidence,
+                            camera_status=camera_info["status"],
+                        )
+                        last_analysis = analysis
+                        analyzed_frames += 1
+                        if show_preview:
+                            draw_pushup_hud(
+                                frame,
+                                analyzer,
+                                pose_confidence,
+                                camera_info,
                             )
-                            last_analysis = analysis
-                            analyzed_frames += 1
-                            if show_preview:
-                                _draw_pushup_hud(frame, analysis)
-                        elif show_preview and last_analysis is not None:
-                            _draw_pushup_hud(frame, last_analysis)
 
                 if show_preview:
                     _draw_quality_overlay(
@@ -551,11 +579,22 @@ def analyze_video(
     video_path: str = SOURCE_VIDEO_REL,
     exercise_type: str = "squat",
 ) -> dict[str, Any]:
-    """CLI-oriented entry: preview window enabled, returns analysis payload."""
+    """CLI-oriented entry: analyze video and always write result.json.
+
+    Preview window is disabled by default so headless/CI runs do not hang.
+    Set AIT_SHOW_PREVIEW=1 to enable the OpenCV HUD window.
+    """
+    import os
+
+    show_preview = os.environ.get("AIT_SHOW_PREVIEW", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }
     return run_video_analysis(
         video_path=video_path,
         exercise_type=exercise_type,
-        show_preview=True,
+        show_preview=show_preview,
         write_json=True,
     )
 

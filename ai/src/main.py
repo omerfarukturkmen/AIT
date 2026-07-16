@@ -28,6 +28,7 @@ def main() -> None:
     ai = result.get("ai_result") or {}
     print(
         f"exercise={ai.get('exercise')} reps={ai.get('rep_count')} "
+        f"state={ai.get('final_state', ai.get('current_state'))} "
         f"frames={metrics.get('total_frames')} "
         f"processed={metrics.get('processed_frames')}"
     )
