@@ -4,10 +4,9 @@ from __future__ import annotations
 
 from copy import deepcopy
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
 
 import cv2
-import mediapipe as mp
 
 from angle_utils import (
     calculate_knee_angles,
@@ -18,12 +17,16 @@ from angle_utils import (
     estimate_body_bbox,
     get_landmark_point,
 )
+from pose_detector import PoseDetector
+from pose_schema import POSE_CONNECTIONS, PoseLandmark
 from pushup_analyzer import PushupAnalyzer
 from result_writer import build_result, empty_result, write_result_json
 from squat_analyzer import SquatAnalyzer
 
 SOURCE_VIDEO_REL = "data/input/input.mp4"
 MIN_POSE_CONFIDENCE = 0.50
+_LANDMARK_COLOR = (0, 255, 0)
+_CONNECTION_COLOR = (0, 200, 255)
 
 _DEFAULT_QUALITY_STATS: dict[str, Any] = {
     "min_pose_confidence": MIN_POSE_CONFIDENCE,
@@ -32,6 +35,54 @@ _DEFAULT_QUALITY_STATS: dict[str, Any] = {
     "camera_too_close_frames": 0,
     "camera_unknown_frames": 0,
 }
+
+
+def compute_video_timestamp_ms(
+    frame_index: int,
+    effective_fps: float,
+    previous_timestamp_ms: int,
+) -> int:
+    """Monotonic VIDEO-mode timestamp from frame index and FPS."""
+    fps = effective_fps if effective_fps > 1e-3 else 30.0
+    calculated = int(frame_index * 1000.0 / fps)
+    return max(calculated, previous_timestamp_ms + 1)
+
+
+def draw_pose_landmarks(
+    frame: Any,
+    landmarks: Any,
+    connections: Sequence[tuple[int, int]] = POSE_CONNECTIONS,
+    *,
+    visibility_threshold: float = 0.5,
+) -> None:
+    """Draw pose landmarks and connections with OpenCV (no MediaPipe drawers)."""
+    try:
+        lm_list = landmarks.landmark
+    except AttributeError:
+        return
+
+    h, w = frame.shape[:2]
+    points: list[tuple[int, int] | None] = []
+    for p in lm_list:
+        vis = float(getattr(p, "visibility", 0.0) or 0.0)
+        if vis < visibility_threshold:
+            points.append(None)
+            continue
+        x = int(round(float(p.x) * w))
+        y = int(round(float(p.y) * h))
+        points.append((x, y))
+        cv2.circle(frame, (x, y), 3, _LANDMARK_COLOR, -1, lineType=cv2.LINE_AA)
+
+    for start_idx, end_idx in connections:
+        if start_idx < 0 or end_idx < 0:
+            continue
+        if start_idx >= len(points) or end_idx >= len(points):
+            continue
+        a = points[start_idx]
+        b = points[end_idx]
+        if a is None or b is None:
+            continue
+        cv2.line(frame, a, b, _CONNECTION_COLOR, 2, lineType=cv2.LINE_AA)
 
 
 class VideoProcessor:
@@ -352,11 +403,12 @@ def run_video_analysis(
     *,
     show_preview: bool = False,
     write_json: bool = True,
+    pose_model_path: str | None = None,
 ) -> dict[str, Any]:
     """Run pose-based exercise analysis and return a structured result dict.
 
     Raises:
-        FileNotFoundError: video path does not exist
+        FileNotFoundError: video path does not exist or pose model missing
         VideoValidationError: video cannot be opened or has no readable frames
         UnsupportedExerciseError: unsupported exercise type
     """
@@ -393,7 +445,8 @@ def run_video_analysis(
 
         fps = float(cap.get(cv2.CAP_PROP_FPS) or 0.0)
         reported_frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
-        analyzer = _create_analyzer(exercise_key, fps=fps if fps > 1e-3 else 30.0)
+        effective_fps = fps if fps > 1e-3 else 30.0
+        analyzer = _create_analyzer(exercise_key, fps=effective_fps)
 
         # Validate at least one frame is readable before full analysis.
         ok, first_frame = cap.read()
@@ -403,46 +456,43 @@ def run_video_analysis(
             )
         cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
 
-        mp_pose = mp.solutions.pose
-        mp_drawing = mp.solutions.drawing_utils
         landmark_indices = (
-            _squat_pose_landmark_indices(mp_pose.PoseLandmark)
+            _squat_pose_landmark_indices(PoseLandmark)
             if exercise_key == "squat"
-            else _pushup_pose_landmark_indices(mp_pose.PoseLandmark)
+            else _pushup_pose_landmark_indices(PoseLandmark)
         )
+        L = PoseLandmark
 
         window = "AIT video test"
-        with mp_pose.Pose(
-            static_image_mode=False,
-            model_complexity=1,
-            smooth_landmarks=True,
-            min_detection_confidence=0.5,
-            min_tracking_confidence=0.5,
-        ) as pose:
+        previous_timestamp_ms = -1
+        with PoseDetector(pose_model_path) as pose_detector:
             while True:
                 ok, frame = cap.read()
                 if not ok:
                     break
 
+                frame_index = total_frames
                 total_frames += 1
                 gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
                 if prev_gray is not None:
                     motion_sum += float(cv2.absdiff(prev_gray, gray).mean())
                 prev_gray = gray
 
-                rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                rgb.flags.writeable = False
-                results = pose.process(rgb)
-                rgb.flags.writeable = True
+                timestamp_ms = compute_video_timestamp_ms(
+                    frame_index,
+                    effective_fps,
+                    previous_timestamp_ms,
+                )
+                previous_timestamp_ms = timestamp_ms
+                detection = pose_detector.process_frame(frame, timestamp_ms)
 
                 pose_confidence = 0.0
                 camera_label = "Camera: Unknown"
                 low_confidence = False
 
-                if results.pose_landmarks:
+                if detection.pose_detected and detection.landmarks is not None:
                     landmark_frames += 1
-                    plm = results.pose_landmarks
-                    L = mp_pose.PoseLandmark
+                    plm = detection.landmarks
                     h, w = frame.shape[:2]
 
                     pose_confidence = calculate_pose_confidence(plm, landmark_indices)
@@ -458,11 +508,7 @@ def run_video_analysis(
                     low_confidence = pose_confidence < MIN_POSE_CONFIDENCE
 
                     if show_preview:
-                        mp_drawing.draw_landmarks(
-                            frame,
-                            results.pose_landmarks,
-                            mp_pose.POSE_CONNECTIONS,
-                        )
+                        draw_pose_landmarks(frame, plm, POSE_CONNECTIONS)
 
                     if exercise_key == "squat":
                         knee_angles = calculate_knee_angles(plm, L, w, h)
@@ -479,7 +525,7 @@ def run_video_analysis(
                                 knee_angles,
                                 pose_confidence=pose_confidence,
                                 torso_lean=torso_lean,
-                                fps=fps if fps > 1e-3 else 30.0,
+                                fps=effective_fps,
                             )
                             last_analysis = analysis
                             analyzed_frames += 1

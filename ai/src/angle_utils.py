@@ -69,7 +69,12 @@ def average_available_values(values: Sequence[float | None]) -> float | None:
     return sum(available) / len(available)
 
 
-def _empty_pushup_angles() -> dict[str, float | None]:
+# Minimum shoulder–ankle distance in pixels before body-line math is reliable.
+_MIN_BODY_LINE_LENGTH_PX = 8.0
+_ALIGNMENT_SIDE_CONF_GAP = 0.08
+
+
+def _empty_pushup_angles() -> dict[str, Any]:
     return {
         "left_elbow": None,
         "right_elbow": None,
@@ -80,7 +85,94 @@ def _empty_pushup_angles() -> dict[str, float | None]:
         "left_hip": None,
         "right_hip": None,
         "avg_hip": None,
+        "body_alignment_angle": None,
+        "body_line_offset": None,
+        "alignment_side": "unknown",
     }
+
+
+def _point_mean_visibility(points: Sequence[dict[str, int | float]]) -> float:
+    if not points:
+        return 0.0
+    return sum(float(p["visibility"]) for p in points) / float(len(points))
+
+
+def _signed_body_line_offset(
+    shoulder: dict[str, int | float],
+    hip: dict[str, int | float],
+    ankle: dict[str, int | float],
+) -> float | None:
+    """Normalized hip offset from shoulder–ankle line.
+
+    Positive → hip displaced toward image +y (down / sagging).
+    Negative → hip displaced toward image -y (up / too high).
+    Sign is corrected so facing left vs right does not invert meaning.
+    """
+    try:
+        sx, sy = float(shoulder["x"]), float(shoulder["y"])
+        hx, hy = float(hip["x"]), float(hip["y"])
+        ax, ay = float(ankle["x"]), float(ankle["y"])
+    except (KeyError, TypeError, ValueError):
+        return None
+
+    dx = ax - sx
+    dy = ay - sy
+    length = math.hypot(dx, dy)
+    if length < _MIN_BODY_LINE_LENGTH_PX:
+        return None
+
+    # Dimensionless signed distance of hip relative to directed S→A.
+    cross = (hx - sx) * dy - (hy - sy) * dx
+    raw = cross / (length * length)
+
+    # Same formula for an image-down unit step from the shoulder.
+    # down_raw > 0 means positive raw already points "down" in the image.
+    down_raw = -dx / (length * length)
+    if abs(down_raw) < 1e-12:
+        # Nearly vertical body line: fall back to image-vertical residual.
+        t = ((hx - sx) * dx + (hy - sy) * dy) / (length * length)
+        py = sy + t * dy
+        return (hy - py) / length
+
+    if down_raw < 0.0:
+        raw = -raw
+    return raw
+
+
+def _side_body_alignment(
+    landmarks: _LandmarkList,
+    shoulder_enum: Any,
+    hip_enum: Any,
+    knee_enum: Any,
+    ankle_enum: Any,
+    image_width: int,
+    image_height: int,
+) -> tuple[float | None, float | None, float]:
+    """Return (shoulder_hip_knee_angle, body_line_offset, confidence)."""
+    shoulder = get_landmark_point(landmarks, shoulder_enum, image_width, image_height)
+    hip = get_landmark_point(landmarks, hip_enum, image_width, image_height)
+    knee = get_landmark_point(landmarks, knee_enum, image_width, image_height)
+    ankle = get_landmark_point(landmarks, ankle_enum, image_width, image_height)
+    if shoulder is None or hip is None or knee is None or ankle is None:
+        return None, None, 0.0
+
+    points = [shoulder, hip, knee, ankle]
+    conf = _point_mean_visibility(points)
+    if (
+        min(float(p["visibility"]) for p in points) < VISIBILITY_THRESHOLD
+        or conf < SIDE_CONFIDENCE_MIN
+    ):
+        return None, None, conf
+
+    angle = angle_between_points(
+        (shoulder["x"], shoulder["y"]),
+        (hip["x"], hip["y"]),
+        (knee["x"], knee["y"]),
+    )
+    offset = _signed_body_line_offset(shoulder, hip, ankle)
+    if offset is None:
+        return None, None, conf
+    return float(angle), float(offset), conf
 
 
 def _pushup_triple_angle(
@@ -109,57 +201,106 @@ def _pushup_triple_angle(
     )
 
 
+SIDE_CONFIDENCE_MIN = 0.55
+KNEE_ANGLE_DISAGREE_DEG = 18.0
+
+
 def calculate_pushup_angles(
     landmarks: _LandmarkList | None,
     image_width: int,
     image_height: int,
-) -> dict[str, float | None]:
-    """Compute elbow, shoulder, and hip alignment angles for push-up analysis."""
+) -> dict[str, Any]:
+    """Compute elbow/shoulder/hip angles plus body-line alignment metrics."""
     empty = _empty_pushup_angles()
     if landmarks is None:
         return empty
 
     try:
-        import mediapipe as mp
+        from pose_schema import PoseLandmark as L
 
-        L = mp.solutions.pose.PoseLandmark
-    except (AttributeError, ImportError):
+        left_elbow = _pushup_triple_angle(
+            landmarks, L.LEFT_SHOULDER, L.LEFT_ELBOW, L.LEFT_WRIST, image_width, image_height
+        )
+        right_elbow = _pushup_triple_angle(
+            landmarks, L.RIGHT_SHOULDER, L.RIGHT_ELBOW, L.RIGHT_WRIST, image_width, image_height
+        )
+        left_shoulder = _pushup_triple_angle(
+            landmarks, L.LEFT_HIP, L.LEFT_SHOULDER, L.LEFT_ELBOW, image_width, image_height
+        )
+        right_shoulder = _pushup_triple_angle(
+            landmarks, L.RIGHT_HIP, L.RIGHT_SHOULDER, L.RIGHT_ELBOW, image_width, image_height
+        )
+        left_hip = _pushup_triple_angle(
+            landmarks, L.LEFT_SHOULDER, L.LEFT_HIP, L.LEFT_ANKLE, image_width, image_height
+        )
+        right_hip = _pushup_triple_angle(
+            landmarks, L.RIGHT_SHOULDER, L.RIGHT_HIP, L.RIGHT_ANKLE, image_width, image_height
+        )
+
+        left_angle, left_offset, left_conf = _side_body_alignment(
+            landmarks,
+            L.LEFT_SHOULDER,
+            L.LEFT_HIP,
+            L.LEFT_KNEE,
+            L.LEFT_ANKLE,
+            image_width,
+            image_height,
+        )
+        right_angle, right_offset, right_conf = _side_body_alignment(
+            landmarks,
+            L.RIGHT_SHOULDER,
+            L.RIGHT_HIP,
+            L.RIGHT_KNEE,
+            L.RIGHT_ANKLE,
+            image_width,
+            image_height,
+        )
+
+        body_alignment_angle: float | None = None
+        body_line_offset: float | None = None
+        alignment_side = "unknown"
+
+        left_ok = left_angle is not None and left_offset is not None
+        right_ok = right_angle is not None and right_offset is not None
+
+        if left_ok and right_ok:
+            if abs(left_conf - right_conf) < _ALIGNMENT_SIDE_CONF_GAP:
+                body_alignment_angle = (float(left_angle) + float(right_angle)) / 2.0
+                body_line_offset = (float(left_offset) + float(right_offset)) / 2.0
+                alignment_side = "both"
+            elif left_conf >= right_conf:
+                body_alignment_angle = float(left_angle)
+                body_line_offset = float(left_offset)
+                alignment_side = "left"
+            else:
+                body_alignment_angle = float(right_angle)
+                body_line_offset = float(right_offset)
+                alignment_side = "right"
+        elif left_ok:
+            body_alignment_angle = float(left_angle)
+            body_line_offset = float(left_offset)
+            alignment_side = "left"
+        elif right_ok:
+            body_alignment_angle = float(right_angle)
+            body_line_offset = float(right_offset)
+            alignment_side = "right"
+
+        return {
+            "left_elbow": left_elbow,
+            "right_elbow": right_elbow,
+            "avg_elbow": average_available_values([left_elbow, right_elbow]),
+            "left_shoulder": left_shoulder,
+            "right_shoulder": right_shoulder,
+            "avg_shoulder": average_available_values([left_shoulder, right_shoulder]),
+            "left_hip": left_hip,
+            "right_hip": right_hip,
+            "avg_hip": average_available_values([left_hip, right_hip]),
+            "body_alignment_angle": body_alignment_angle,
+            "body_line_offset": body_line_offset,
+            "alignment_side": alignment_side,
+        }
+    except Exception:
         return empty
-
-    left_elbow = _pushup_triple_angle(
-        landmarks, L.LEFT_SHOULDER, L.LEFT_ELBOW, L.LEFT_WRIST, image_width, image_height
-    )
-    right_elbow = _pushup_triple_angle(
-        landmarks, L.RIGHT_SHOULDER, L.RIGHT_ELBOW, L.RIGHT_WRIST, image_width, image_height
-    )
-    left_shoulder = _pushup_triple_angle(
-        landmarks, L.LEFT_HIP, L.LEFT_SHOULDER, L.LEFT_ELBOW, image_width, image_height
-    )
-    right_shoulder = _pushup_triple_angle(
-        landmarks, L.RIGHT_HIP, L.RIGHT_SHOULDER, L.RIGHT_ELBOW, image_width, image_height
-    )
-    left_hip = _pushup_triple_angle(
-        landmarks, L.LEFT_SHOULDER, L.LEFT_HIP, L.LEFT_ANKLE, image_width, image_height
-    )
-    right_hip = _pushup_triple_angle(
-        landmarks, L.RIGHT_SHOULDER, L.RIGHT_HIP, L.RIGHT_ANKLE, image_width, image_height
-    )
-
-    return {
-        "left_elbow": left_elbow,
-        "right_elbow": right_elbow,
-        "avg_elbow": average_available_values([left_elbow, right_elbow]),
-        "left_shoulder": left_shoulder,
-        "right_shoulder": right_shoulder,
-        "avg_shoulder": average_available_values([left_shoulder, right_shoulder]),
-        "left_hip": left_hip,
-        "right_hip": right_hip,
-        "avg_hip": average_available_values([left_hip, right_hip]),
-    }
-
-
-SIDE_CONFIDENCE_MIN = 0.55
-KNEE_ANGLE_DISAGREE_DEG = 18.0
 
 
 def _side_knee_measurement(
