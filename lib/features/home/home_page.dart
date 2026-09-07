@@ -21,6 +21,8 @@ import '../camera/live_analysis_page.dart';
 import '../exercise_detail/exercise_detail_page.dart';
 import '../result/result_page.dart';
 
+enum VideoAnalysisStatus { idle, selected, pending, completed, failed }
+
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -33,9 +35,11 @@ class _HomePageState extends State<HomePage> {
 
   VideoPlayerController? _videoController;
   XFile? selectedVideo;
-  String? selectedVideoPath;
   bool isAnalyzing = false;
   String selectedExercise = 'Squat';
+
+  VideoAnalysisStatus videoAnalysisStatus = VideoAnalysisStatus.idle;
+  String? videoAnalysisErrorMessage;
 
   @override
   void initState() {
@@ -71,7 +75,8 @@ class _HomePageState extends State<HomePage> {
 
     setState(() {
       selectedVideo = video;
-      selectedVideoPath = video.path;
+      videoAnalysisStatus = VideoAnalysisStatus.selected;
+      videoAnalysisErrorMessage = null;
     });
 
     await _videoController!.play();
@@ -108,16 +113,22 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> analyzeVideo() async {
     if (selectedVideo == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Lütfen önce analiz etmek için bir video yükle.'),
-        ),
-      );
+      setState(() {
+        videoAnalysisStatus = VideoAnalysisStatus.idle;
+        videoAnalysisErrorMessage =
+            'Lütfen önce analiz etmek için bir video yükle.';
+      });
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(videoAnalysisErrorMessage!)));
       return;
     }
 
     setState(() {
       isAnalyzing = true;
+      videoAnalysisStatus = VideoAnalysisStatus.pending;
+      videoAnalysisErrorMessage = null;
     });
 
     try {
@@ -179,6 +190,11 @@ class _HomePageState extends State<HomePage> {
 
       if (!mounted) return;
 
+      setState(() {
+        videoAnalysisStatus = VideoAnalysisStatus.completed;
+        videoAnalysisErrorMessage = null;
+      });
+
       Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => ResultPage(result: result)),
@@ -186,9 +202,15 @@ class _HomePageState extends State<HomePage> {
     } catch (e) {
       if (!mounted) return;
 
+      setState(() {
+        videoAnalysisStatus = VideoAnalysisStatus.failed;
+        videoAnalysisErrorMessage =
+            'Video analiz edilirken bir sorun oluştu. Backend açık mı ve video dosyası uygun formatta mı kontrol et.';
+      });
+
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Backend analiz hatası: $e')));
+      ).showSnackBar(SnackBar(content: Text(videoAnalysisErrorMessage!)));
     } finally {
       if (mounted) {
         setState(() {
@@ -248,6 +270,7 @@ class _HomePageState extends State<HomePage> {
                         },
                       ),
                       const SizedBox(height: 18),
+
                       _FavoriteExercisesCard(
                         onExerciseSelected: (exerciseName) {
                           setState(() {
@@ -324,69 +347,90 @@ class _HomePageState extends State<HomePage> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 20),
-                      const _SectionHeader(
-                        title: 'Video Ön İzleme',
-                        subtitle:
-                            'Video analizi için hareketin net göründüğünden emin ol.',
-                      ),
-                      const SizedBox(height: 10),
-                      GlassCard(
-                        child: hasVideo
-                            ? ClipRRect(
-                                borderRadius: BorderRadius.circular(18),
-                                child: AspectRatio(
-                                  aspectRatio:
-                                      _videoController!.value.aspectRatio,
-                                  child: GestureDetector(
-                                    onTap: toggleVideoPlay,
-                                    child: Stack(
-                                      alignment: Alignment.center,
-                                      children: [
-                                        VideoPlayer(_videoController!),
-                                        Positioned(
-                                          top: 12,
-                                          left: 12,
-                                          child: _StatusBadge(
-                                            text: 'Video Ready',
-                                            color: Colors.greenAccent,
+                      if (hasVideo) ...[
+                        const SizedBox(height: 20),
+                        const _SectionHeader(
+                          title: 'Video Ön İzleme',
+                          subtitle:
+                              'Video analizi için hareketin net göründüğünden emin ol.',
+                        ),
+                        const SizedBox(height: 10),
+                        GlassCard(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(18),
+                            child: AspectRatio(
+                              aspectRatio: _videoController!.value.aspectRatio,
+                              child: GestureDetector(
+                                onTap: toggleVideoPlay,
+                                child: Stack(
+                                  alignment: Alignment.center,
+                                  children: [
+                                    VideoPlayer(_videoController!),
+                                    Positioned(
+                                      top: 12,
+                                      left: 12,
+                                      child: _StatusBadge(
+                                        text: 'Video Ready',
+                                        color: Colors.greenAccent,
+                                      ),
+                                    ),
+                                    Positioned(
+                                      top: 12,
+                                      right: 12,
+                                      child: _StatusBadge(
+                                        text: selectedExercise,
+                                        color: AppColors.purpleGlow,
+                                      ),
+                                    ),
+                                    if (!_videoController!.value.isPlaying)
+                                      Container(
+                                        decoration: BoxDecoration(
+                                          color: Colors.black.withValues(
+                                            alpha: 0.35,
+                                          ),
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                            color: Colors.white.withValues(
+                                              alpha: 0.25,
+                                            ),
                                           ),
                                         ),
-                                        if (!_videoController!.value.isPlaying)
-                                          Container(
-                                            decoration: BoxDecoration(
-                                              color: Colors.black.withValues(
-                                                alpha: 0.35,
-                                              ),
-                                              shape: BoxShape.circle,
-                                              border: Border.all(
-                                                color: Colors.white.withValues(
-                                                  alpha: 0.25,
-                                                ),
-                                              ),
-                                            ),
-                                            padding: const EdgeInsets.all(18),
-                                            child: const Icon(
-                                              Icons.play_arrow_rounded,
-                                              size: 48,
-                                              color: Colors.white,
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
+                                        padding: const EdgeInsets.all(18),
+                                        child: const Icon(
+                                          Icons.play_arrow_rounded,
+                                          size: 48,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                  ],
                                 ),
-                              )
-                            : const _VideoPlaceholder(),
-                      ),
-                      const SizedBox(height: 18),
-                      PremiumButton(
-                        icon: Icons.analytics_rounded,
-                        text: hasVideo
-                            ? 'Yüklenen Videoyu Backend ile Analiz Et'
-                            : 'Önce Video Yükle',
-                        onPressed: analyzeVideo,
-                      ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        _VideoAnalysisStatusCard(
+                          status: videoAnalysisStatus,
+                          errorMessage: videoAnalysisErrorMessage,
+                          exerciseName: selectedExercise,
+                        ),
+                        const SizedBox(height: 14),
+                        PremiumButton(
+                          icon: Icons.analytics_rounded,
+                          text: 'Yüklenen Videoyu Backend ile Analiz Et',
+                          onPressed: analyzeVideo,
+                        ),
+                      ],
+                      if (!hasVideo &&
+                          videoAnalysisStatus ==
+                              VideoAnalysisStatus.failed) ...[
+                        const SizedBox(height: 18),
+                        _VideoAnalysisStatusCard(
+                          status: videoAnalysisStatus,
+                          errorMessage: videoAnalysisErrorMessage,
+                          exerciseName: selectedExercise,
+                        ),
+                      ],
                       const SizedBox(height: 18),
                       const _TipsCard(),
                     ],
@@ -404,138 +448,60 @@ class _PremiumHeroCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GlassCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Row(
-            children: [
-              Container(
-                height: 58,
-                width: 58,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [
-                      Color(0xFF5B4B8A),
-                      Color(0xFF3B2A6D),
-                      Color(0xFF1F1A3D),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(18),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.purpleGlow.withValues(alpha: 0.28),
-                      blurRadius: 24,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.fitness_center_rounded,
-                  color: Colors.white,
-                  size: 32,
-                ),
-              ),
-              const SizedBox(width: 14),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'AI Fitness Trainer',
-                      style: TextStyle(
-                        fontSize: 25,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: -0.6,
-                      ),
-                    ),
-                    SizedBox(height: 6),
-                    Text(
-                      'Canlı kamera veya video üzerinden egzersiz formunu analiz et.',
-                      style: TextStyle(
-                        color: AppColors.textSoft,
-                        height: 1.4,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          Row(
-            children: const [
-              _HeroMetric(
-                title: 'Live Mode',
-                value: 'Camera',
-                icon: Icons.videocam_rounded,
-              ),
-              SizedBox(width: 10),
-              _HeroMetric(
-                title: 'Upload Mode',
-                value: 'Video',
-                icon: Icons.movie_creation_rounded,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _HeroMetric extends StatelessWidget {
-  final String title;
-  final String value;
-  final IconData icon;
-
-  const _HeroMetric({
-    required this.title,
-    required this.value,
-    required this.icon,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(13),
-        decoration: BoxDecoration(
-          color: AppColors.purpleGlow.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: AppColors.purpleGlow.withValues(alpha: 0.24),
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, color: AppColors.purpleGlow, size: 21),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    value,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 13,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      color: AppColors.textSoft,
-                      fontSize: 11,
-                    ),
-                  ),
+          Container(
+            height: 58,
+            width: 58,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [
+                  Color(0xFF5B4B8A),
+                  Color(0xFF3B2A6D),
+                  Color(0xFF1F1A3D),
                 ],
               ),
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.purpleGlow.withValues(alpha: 0.28),
+                  blurRadius: 24,
+                  offset: const Offset(0, 10),
+                ),
+              ],
             ),
-          ],
-        ),
+            child: const Icon(
+              Icons.fitness_center_rounded,
+              color: Colors.white,
+              size: 32,
+            ),
+          ),
+          const SizedBox(width: 14),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'AI Fitness Trainer',
+                  style: TextStyle(
+                    fontSize: 27,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.6,
+                  ),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'Canlı kamera veya video üzerinden egzersiz formunu analiz et.',
+                  style: TextStyle(
+                    color: AppColors.textSoft,
+                    height: 1.4,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -791,45 +757,117 @@ class _StatusBadge extends StatelessWidget {
   }
 }
 
-class _VideoPlaceholder extends StatelessWidget {
-  const _VideoPlaceholder();
+class _VideoAnalysisStatusCard extends StatelessWidget {
+  final VideoAnalysisStatus status;
+  final String? errorMessage;
+  final String exerciseName;
+
+  const _VideoAnalysisStatusCard({
+    required this.status,
+    required this.errorMessage,
+    required this.exerciseName,
+  });
+
+  Color get statusColor {
+    switch (status) {
+      case VideoAnalysisStatus.idle:
+        return AppColors.textSoft;
+      case VideoAnalysisStatus.selected:
+        return AppColors.purpleGlow;
+      case VideoAnalysisStatus.pending:
+        return Colors.orangeAccent;
+      case VideoAnalysisStatus.completed:
+        return Colors.greenAccent;
+      case VideoAnalysisStatus.failed:
+        return Colors.redAccent;
+    }
+  }
+
+  IconData get statusIcon {
+    switch (status) {
+      case VideoAnalysisStatus.idle:
+        return Icons.video_library_rounded;
+      case VideoAnalysisStatus.selected:
+        return Icons.check_circle_outline_rounded;
+      case VideoAnalysisStatus.pending:
+        return Icons.cloud_sync_rounded;
+      case VideoAnalysisStatus.completed:
+        return Icons.verified_rounded;
+      case VideoAnalysisStatus.failed:
+        return Icons.error_rounded;
+    }
+  }
+
+  String get statusTitle {
+    switch (status) {
+      case VideoAnalysisStatus.idle:
+        return 'Video analizi bekleniyor';
+      case VideoAnalysisStatus.selected:
+        return 'Video seçildi';
+      case VideoAnalysisStatus.pending:
+        return 'Backend analizi çalışıyor';
+      case VideoAnalysisStatus.completed:
+        return 'Analiz tamamlandı';
+      case VideoAnalysisStatus.failed:
+        return 'Analiz başarısız oldu';
+    }
+  }
+
+  String get statusDescription {
+    switch (status) {
+      case VideoAnalysisStatus.idle:
+        return 'Analize başlamak için önce galeriden bir video seç.';
+      case VideoAnalysisStatus.selected:
+        return '$exerciseName hareketi için video hazır. Analizi başlatabilirsin.';
+      case VideoAnalysisStatus.pending:
+        return 'Video backend tarafına gönderildi. Sonuç hazırlanıyor.';
+      case VideoAnalysisStatus.completed:
+        return 'Sonuç ekranı açıldı ve analiz geçmişe kaydedildi.';
+      case VideoAnalysisStatus.failed:
+        return errorMessage ??
+            'Video analiz edilirken bir sorun oluştu. Lütfen tekrar dene.';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 220,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+    return GlassCard(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            height: 76,
-            width: 76,
+            height: 46,
+            width: 46,
             decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: AppColors.purpleGlow.withValues(alpha: 0.14),
-              border: Border.all(
-                color: AppColors.purpleGlow.withValues(alpha: 0.26),
-              ),
+              color: statusColor.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: statusColor.withValues(alpha: 0.30)),
             ),
-            child: const Icon(
-              Icons.video_library_rounded,
-              size: 38,
-              color: AppColors.textSoft,
-            ),
+            child: Icon(statusIcon, color: statusColor, size: 25),
           ),
-          const SizedBox(height: 16),
-          const Text(
-            'Henüz video seçilmedi',
-            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17),
-          ),
-          const SizedBox(height: 7),
-          const Text(
-            'Galeriden video yükleyerek yapay zeka analizini başlatabilirsin.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: AppColors.textSoft,
-              fontSize: 13,
-              height: 1.4,
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  statusTitle,
+                  style: TextStyle(
+                    color: statusColor,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  statusDescription,
+                  style: const TextStyle(
+                    color: AppColors.textSoft,
+                    height: 1.4,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
             ),
           ),
         ],

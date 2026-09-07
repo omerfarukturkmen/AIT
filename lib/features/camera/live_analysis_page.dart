@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/state/analysis_history_store.dart';
 import '../../../core/state/app_settings_store.dart';
 import '../../../data/api_service.dart';
 import '../../../main.dart';
@@ -14,6 +15,8 @@ import '../../../widgets/glass_card.dart';
 import '../../../widgets/premium_background.dart';
 import '../../../widgets/premium_button.dart';
 import '../result/result_page.dart';
+
+enum LiveFeedbackType { idle, success, warning, error, cameraPosition }
 
 class LiveAnalysisPage extends StatefulWidget {
   final String exerciseName;
@@ -33,6 +36,9 @@ class _LiveAnalysisPageState extends State<LiveAnalysisPage> {
   bool isFullScreenCamera = false;
   bool isUploadingToBackend = false;
 
+  bool hasCompletedAnalysis = false;
+  String? analysisErrorMessage;
+
   Timer? _feedbackTimer;
   final FlutterTts _flutterTts = FlutterTts();
   final Random _random = Random();
@@ -45,6 +51,9 @@ class _LiveAnalysisPageState extends State<LiveAnalysisPage> {
   String liveStatus = 'Analiz başlatılmayı bekliyor.';
   String postureWarning =
       'Kamera karşısında tüm vücudun görünecek şekilde dur.';
+
+  LiveFeedbackType feedbackType = LiveFeedbackType.idle;
+  bool hasStartedOnce = false;
 
   final List<String> _squatFeedbacksTr = [
     'Dizlerini ayak parmaklarınla aynı hizada tut.',
@@ -155,6 +164,8 @@ class _LiveAnalysisPageState extends State<LiveAnalysisPage> {
         postureWarning = settings.languageCode == 'tr-TR'
             ? 'Kamera karşısında tüm vücudun görünecek şekilde dur.'
             : 'Stand so your full body is visible in front of the camera.';
+
+        feedbackType = LiveFeedbackType.idle;
       });
     }
   }
@@ -223,16 +234,20 @@ class _LiveAnalysisPageState extends State<LiveAnalysisPage> {
       setState(() {
         isAnalyzing = true;
         isUploadingToBackend = false;
+        hasCompletedAnalysis = false;
+        analysisErrorMessage = null;
+        hasStartedOnce = true;
+        feedbackType = LiveFeedbackType.cameraPosition;
         _lastSpokenWarning = null;
         repetitionCount = 0;
 
         liveStatus = settings.languageCode == 'tr-TR'
-            ? 'Canlı analiz aktif. Video backend için kaydediliyor.'
-            : 'Live analysis is active. Video is being recorded for backend.';
+            ? 'Canlı analiz aktif.'
+            : 'Live analysis is active.';
 
         postureWarning = settings.languageCode == 'tr-TR'
-            ? 'Hareket formun izleniyor...'
-            : 'Your movement form is being monitored...';
+            ? 'Kamerada tüm vücudunun göründüğünden emin ol. Hareket formun izleniyor.'
+            : 'Make sure your full body is visible. Your movement form is being monitored.';
       });
 
       _feedbackTimer?.cancel();
@@ -265,9 +280,12 @@ class _LiveAnalysisPageState extends State<LiveAnalysisPage> {
     try {
       setState(() {
         isUploadingToBackend = true;
+        feedbackType = LiveFeedbackType.cameraPosition;
+
         liveStatus = settings.languageCode == 'tr-TR'
             ? 'Video backend tarafına gönderiliyor.'
             : 'Video is being sent to backend.';
+
         postureWarning = settings.languageCode == 'tr-TR'
             ? 'Lütfen bekle, analiz sonucu hazırlanıyor...'
             : 'Please wait, analysis result is being prepared...';
@@ -286,6 +304,7 @@ class _LiveAnalysisPageState extends State<LiveAnalysisPage> {
         userId: 1,
         exerciseName: widget.exerciseName,
       );
+
       final int accuracy = backendResult.accuracy is int
           ? backendResult.accuracy
           : int.tryParse(backendResult.accuracy.toString()) ?? formScore;
@@ -328,11 +347,18 @@ class _LiveAnalysisPageState extends State<LiveAnalysisPage> {
         ],
       );
 
+      AnalysisHistoryStore.addResult(result);
+
       if (!mounted) return;
 
       setState(() {
         isAnalyzing = false;
         isUploadingToBackend = false;
+        hasCompletedAnalysis = true;
+        analysisErrorMessage = null;
+        feedbackType = accuracy >= 75
+            ? LiveFeedbackType.success
+            : LiveFeedbackType.error;
       });
 
       Navigator.push(
@@ -345,10 +371,17 @@ class _LiveAnalysisPageState extends State<LiveAnalysisPage> {
       setState(() {
         isAnalyzing = false;
         isUploadingToBackend = false;
+        hasCompletedAnalysis = false;
+        analysisErrorMessage = e.toString();
+        feedbackType = LiveFeedbackType.error;
+
         liveStatus = settings.languageCode == 'tr-TR'
             ? 'Backend analiz hatası oluştu.'
             : 'Backend analysis error occurred.';
-        postureWarning = e.toString();
+
+        postureWarning = settings.languageCode == 'tr-TR'
+            ? 'Analiz başarısız oldu. Lütfen tekrar dene.'
+            : 'Analysis failed. Please try again.';
       });
 
       ScaffoldMessenger.of(
@@ -399,20 +432,32 @@ class _LiveAnalysisPageState extends State<LiveAnalysisPage> {
         repetitionCount++;
       }
 
-      postureWarning = newWarning;
-
       if (formScore >= 85) {
+        feedbackType = LiveFeedbackType.success;
+
         liveStatus = settings.languageCode == 'tr-TR'
-            ? 'Form iyi görünüyor.'
-            : 'Your form looks good.';
+            ? 'Doğru form algılandı.'
+            : 'Correct form detected.';
+
+        postureWarning = settings.languageCode == 'tr-TR'
+            ? 'Hareket formun iyi görünüyor, aynı kontrollü tempoda devam et.'
+            : 'Your form looks good. Keep moving with the same controlled tempo.';
       } else if (formScore >= 70) {
+        feedbackType = LiveFeedbackType.warning;
+
         liveStatus = settings.languageCode == 'tr-TR'
-            ? 'Küçük form düzeltmeleri gerekli.'
-            : 'Small form corrections are needed.';
+            ? 'Küçük form düzeltmesi gerekli.'
+            : 'Small form correction needed.';
+
+        postureWarning = newWarning;
       } else {
+        feedbackType = LiveFeedbackType.error;
+
         liveStatus = settings.languageCode == 'tr-TR'
             ? 'Form hatası algılandı.'
             : 'Form error detected.';
+
+        postureWarning = newWarning;
       }
     });
 
@@ -459,6 +504,10 @@ class _LiveAnalysisPageState extends State<LiveAnalysisPage> {
         builder: (context, settings, child) {
           return _FullScreenCameraView(
             cameraContent: _buildCameraContent(),
+            exerciseName: widget.exerciseName,
+            formScore: formScore,
+            repetitionCount: repetitionCount,
+            scoreColor: scoreColor,
             isAnalyzing: isAnalyzing,
             postureWarning: postureWarning,
             voiceFeedbackEnabled: settings.voiceFeedbackEnabled,
@@ -489,6 +538,18 @@ class _LiveAnalysisPageState extends State<LiveAnalysisPage> {
                         children: [
                           _buildCameraCard(settings),
                           const SizedBox(height: 16),
+                          if (!isAnalyzing && !isUploadingToBackend)
+                            _LiveInstructionCard(
+                              exerciseName: widget.exerciseName,
+                            ),
+                          if (!isAnalyzing && !isUploadingToBackend)
+                            const SizedBox(height: 16),
+                          if (!isAnalyzing && !isUploadingToBackend)
+                            _CameraPositionWarningCard(
+                              exerciseName: widget.exerciseName,
+                            ),
+                          if (!isAnalyzing && !isUploadingToBackend)
+                            const SizedBox(height: 16),
                           _LiveStatusCard(
                             exerciseName: widget.exerciseName,
                             formScore: formScore,
@@ -497,6 +558,7 @@ class _LiveAnalysisPageState extends State<LiveAnalysisPage> {
                             postureWarning: postureWarning,
                             scoreColor: scoreColor,
                             isAnalyzing: isAnalyzing,
+                            feedbackType: feedbackType,
                           ),
                           const SizedBox(height: 16),
                           _ActiveSettingsCard(settings: settings),
@@ -515,11 +577,15 @@ class _LiveAnalysisPageState extends State<LiveAnalysisPage> {
                                       : 'Backend Is Analyzing...'
                                 : isAnalyzing
                                 ? settings.languageCode == 'tr-TR'
-                                      ? 'Canlı Analizi Durdur ve Backend’e Gönder'
-                                      : 'Stop Live Analysis and Send to Backend'
+                                      ? 'Durdur'
+                                      : 'Stop'
+                                : hasStartedOnce
+                                ? settings.languageCode == 'tr-TR'
+                                      ? 'Tekrar Başlat'
+                                      : 'Restart'
                                 : settings.languageCode == 'tr-TR'
-                                ? 'Canlı Analizi Başlat'
-                                : 'Start Live Analysis',
+                                ? 'Analizi Başlat'
+                                : 'Start Analysis',
                             onPressed: _handleAnalysisButton,
                           ),
                           const SizedBox(height: 16),
@@ -566,11 +632,12 @@ class _LiveAnalysisPageState extends State<LiveAnalysisPage> {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(22),
         child: SizedBox(
-          height: 390,
+          height: 430,
           child: Stack(
             fit: StackFit.expand,
             children: [
               _buildCameraContent(),
+
               Positioned(
                 top: 12,
                 left: 12,
@@ -581,6 +648,7 @@ class _LiveAnalysisPageState extends State<LiveAnalysisPage> {
                       : AppColors.purpleGlow,
                 ),
               ),
+
               Positioned(
                 top: 12,
                 right: 12,
@@ -620,13 +688,29 @@ class _LiveAnalysisPageState extends State<LiveAnalysisPage> {
                   ],
                 ),
               ),
+
+              Positioned(
+                top: 62,
+                left: 12,
+                right: 12,
+                child: _CameraLiveMetricsOverlay(
+                  exerciseName: widget.exerciseName,
+                  formScore: formScore,
+                  repetitionCount: repetitionCount,
+                  scoreColor: scoreColor,
+                  isAnalyzing: isAnalyzing,
+                ),
+              ),
+
               Positioned(
                 bottom: 12,
                 left: 12,
                 right: 12,
-                child: _CameraOverlayMessage(
-                  message: postureWarning,
-                  isActive: isAnalyzing,
+                child: _CameraActiveFeedbackOverlay(
+                  liveStatus: liveStatus,
+                  postureWarning: postureWarning,
+                  feedbackType: feedbackType,
+                  isAnalyzing: isAnalyzing,
                 ),
               ),
             ],
@@ -689,6 +773,7 @@ class _LiveStatusCard extends StatelessWidget {
   final String postureWarning;
   final Color scoreColor;
   final bool isAnalyzing;
+  final LiveFeedbackType feedbackType;
 
   const _LiveStatusCard({
     required this.exerciseName,
@@ -698,7 +783,38 @@ class _LiveStatusCard extends StatelessWidget {
     required this.postureWarning,
     required this.scoreColor,
     required this.isAnalyzing,
+    required this.feedbackType,
   });
+
+  Color get feedbackColor {
+    switch (feedbackType) {
+      case LiveFeedbackType.success:
+        return Colors.greenAccent;
+      case LiveFeedbackType.warning:
+        return Colors.orangeAccent;
+      case LiveFeedbackType.error:
+        return Colors.redAccent;
+      case LiveFeedbackType.cameraPosition:
+        return AppColors.purpleGlow;
+      case LiveFeedbackType.idle:
+        return AppColors.textSoft;
+    }
+  }
+
+  IconData get feedbackIcon {
+    switch (feedbackType) {
+      case LiveFeedbackType.success:
+        return Icons.check_circle_rounded;
+      case LiveFeedbackType.warning:
+        return Icons.warning_amber_rounded;
+      case LiveFeedbackType.error:
+        return Icons.error_rounded;
+      case LiveFeedbackType.cameraPosition:
+        return Icons.center_focus_strong_rounded;
+      case LiveFeedbackType.idle:
+        return Icons.info_outline_rounded;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -757,18 +873,50 @@ class _LiveStatusCard extends StatelessWidget {
             valueColor: AlwaysStoppedAnimation<Color>(scoreColor),
           ),
           const SizedBox(height: 16),
-          Text(
-            liveStatus,
-            style: TextStyle(
-              color: scoreColor,
-              fontWeight: FontWeight.w900,
-              fontSize: 15,
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 350),
+            child: Container(
+              key: ValueKey(postureWarning),
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: feedbackColor.withValues(alpha: 0.13),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: feedbackColor.withValues(alpha: 0.35),
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(feedbackIcon, color: feedbackColor, size: 24),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          liveStatus,
+                          style: TextStyle(
+                            color: feedbackColor,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 15,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          postureWarning,
+                          style: const TextStyle(
+                            color: AppColors.textSoft,
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            postureWarning,
-            style: const TextStyle(color: AppColors.textSoft, height: 1.4),
           ),
         ],
       ),
@@ -930,44 +1078,6 @@ class _MetricBox extends StatelessWidget {
   }
 }
 
-class _CameraOverlayMessage extends StatelessWidget {
-  final String message;
-  final bool isActive;
-
-  const _CameraOverlayMessage({required this.message, required this.isActive});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.55),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: isActive
-              ? AppColors.purpleGlow.withValues(alpha: 0.35)
-              : Colors.white.withValues(alpha: 0.12),
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            isActive ? Icons.auto_awesome_rounded : Icons.info_outline_rounded,
-            color: isActive ? AppColors.purpleGlow : AppColors.textSoft,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              message,
-              style: const TextStyle(color: Colors.white, height: 1.3),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _StatusBadge extends StatelessWidget {
   final String text;
   final Color color;
@@ -1021,6 +1131,10 @@ class _LiveAnalysisInfoCard extends StatelessWidget {
 
 class _FullScreenCameraView extends StatelessWidget {
   final Widget cameraContent;
+  final String exerciseName;
+  final int formScore;
+  final int repetitionCount;
+  final Color scoreColor;
   final bool isAnalyzing;
   final String postureWarning;
   final bool voiceFeedbackEnabled;
@@ -1028,6 +1142,10 @@ class _FullScreenCameraView extends StatelessWidget {
 
   const _FullScreenCameraView({
     required this.cameraContent,
+    required this.exerciseName,
+    required this.formScore,
+    required this.repetitionCount,
+    required this.scoreColor,
     required this.isAnalyzing,
     required this.postureWarning,
     required this.voiceFeedbackEnabled,
@@ -1081,6 +1199,18 @@ class _FullScreenCameraView extends StatelessWidget {
             ),
           ),
           Positioned(
+            top: MediaQuery.of(context).padding.top + 68,
+            left: 16,
+            right: 16,
+            child: _CameraLiveMetricsOverlay(
+              exerciseName: exerciseName,
+              formScore: formScore,
+              repetitionCount: repetitionCount,
+              scoreColor: scoreColor,
+              isAnalyzing: isAnalyzing,
+            ),
+          ),
+          Positioned(
             bottom: MediaQuery.of(context).padding.bottom + 24,
             left: 16,
             right: 16,
@@ -1121,6 +1251,397 @@ class _FullScreenCameraView extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _LiveInstructionCard extends StatelessWidget {
+  final String exerciseName;
+
+  const _LiveInstructionCard({required this.exerciseName});
+
+  List<String> get instructions {
+    switch (exerciseName) {
+      case 'Squat':
+        return const [
+          'Ayaklarını omuz genişliğinde aç.',
+          'Kamerada tüm vücudunun göründüğünden emin ol.',
+          'Dizlerini ayak parmaklarınla aynı hizada tut.',
+          'İniş ve kalkış hareketini kontrollü yap.',
+        ];
+
+      case 'Push-up':
+        return const [
+          'Ellerini omuz genişliğinde konumlandır.',
+          'Omuz, kalça ve ayak hizanı düz tut.',
+          'Göğsünü kontrollü şekilde yere yaklaştır.',
+          'Core bölgeni aktif tutarak hareketi başlat.',
+        ];
+
+      default:
+        return const [
+          'Kamerada tüm vücudunun göründüğünden emin ol.',
+          'Hareketi yavaş ve kontrollü şekilde yap.',
+          'Eklem hizalarını korumaya dikkat et.',
+          'Analiz başlamadan önce doğru pozisyon al.',
+        ];
+    }
+  }
+
+  IconData get exerciseIcon {
+    switch (exerciseName) {
+      case 'Squat':
+        return Icons.fitness_center_rounded;
+      case 'Push-up':
+        return Icons.accessibility_new_rounded;
+      default:
+        return Icons.directions_run_rounded;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                height: 44,
+                width: 44,
+                decoration: BoxDecoration(
+                  color: AppColors.purpleGlow.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: AppColors.purpleGlow.withValues(alpha: 0.28),
+                  ),
+                ),
+                child: Icon(
+                  exerciseIcon,
+                  color: AppColors.purpleGlow,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  '$exerciseName İçin Hazırlık',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          ...instructions.map(
+            (instruction) => Padding(
+              padding: const EdgeInsets.only(bottom: 9),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(
+                    Icons.check_circle_rounded,
+                    color: AppColors.purpleGlow,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      instruction,
+                      style: const TextStyle(
+                        color: AppColors.textSoft,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CameraLiveMetricsOverlay extends StatelessWidget {
+  final String exerciseName;
+  final int formScore;
+  final int repetitionCount;
+  final Color scoreColor;
+  final bool isAnalyzing;
+
+  const _CameraLiveMetricsOverlay({
+    required this.exerciseName,
+    required this.formScore,
+    required this.repetitionCount,
+    required this.scoreColor,
+    required this.isAnalyzing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.58),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isAnalyzing
+              ? AppColors.purpleGlow.withValues(alpha: 0.38)
+              : Colors.white.withValues(alpha: 0.15),
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _CameraMetricItem(
+              title: 'Hareket',
+              value: exerciseName,
+              icon: Icons.fitness_center_rounded,
+              color: AppColors.purpleGlow,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _CameraMetricItem(
+              title: 'Skor',
+              value: '$formScore',
+              icon: Icons.speed_rounded,
+              color: scoreColor,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _CameraMetricItem(
+              title: 'Tekrar',
+              value: '$repetitionCount',
+              icon: Icons.repeat_rounded,
+              color: Colors.greenAccent,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CameraMetricItem extends StatelessWidget {
+  final String title;
+  final String value;
+  final IconData icon;
+  final Color color;
+
+  const _CameraMetricItem({
+    required this.title,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Icon(icon, color: color, size: 20),
+        const SizedBox(height: 5),
+        Text(
+          value,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: color,
+            fontWeight: FontWeight.w900,
+            fontSize: 14,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          title,
+          style: const TextStyle(
+            color: AppColors.textSoft,
+            fontSize: 10,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CameraActiveFeedbackOverlay extends StatelessWidget {
+  final String liveStatus;
+  final String postureWarning;
+  final LiveFeedbackType feedbackType;
+  final bool isAnalyzing;
+
+  const _CameraActiveFeedbackOverlay({
+    required this.liveStatus,
+    required this.postureWarning,
+    required this.feedbackType,
+    required this.isAnalyzing,
+  });
+
+  Color get feedbackColor {
+    switch (feedbackType) {
+      case LiveFeedbackType.success:
+        return Colors.greenAccent;
+      case LiveFeedbackType.warning:
+        return Colors.orangeAccent;
+      case LiveFeedbackType.error:
+        return Colors.redAccent;
+      case LiveFeedbackType.cameraPosition:
+        return AppColors.purpleGlow;
+      case LiveFeedbackType.idle:
+        return AppColors.textSoft;
+    }
+  }
+
+  IconData get feedbackIcon {
+    switch (feedbackType) {
+      case LiveFeedbackType.success:
+        return Icons.check_circle_rounded;
+      case LiveFeedbackType.warning:
+        return Icons.warning_amber_rounded;
+      case LiveFeedbackType.error:
+        return Icons.error_rounded;
+      case LiveFeedbackType.cameraPosition:
+        return Icons.center_focus_strong_rounded;
+      case LiveFeedbackType.idle:
+        return Icons.info_outline_rounded;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 450),
+      switchInCurve: Curves.easeOutBack,
+      switchOutCurve: Curves.easeIn,
+      transitionBuilder: (Widget child, Animation<double> animation) {
+        final offsetAnimation = Tween<Offset>(
+          begin: const Offset(0, 0.35),
+          end: Offset.zero,
+        ).animate(animation);
+
+        return FadeTransition(
+          opacity: animation,
+          child: SlideTransition(position: offsetAnimation, child: child),
+        );
+      },
+      child: Container(
+        key: ValueKey('$liveStatus-$postureWarning-$feedbackType'),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.68),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: feedbackColor.withValues(alpha: 0.42)),
+
+          boxShadow: [
+            BoxShadow(
+              color: feedbackColor.withValues(alpha: 0.24),
+              blurRadius: 24,
+              spreadRadius: 1,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(feedbackIcon, color: feedbackColor, size: 26),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    isAnalyzing
+                        ? liveStatus
+                        : 'Analiz başlamadan önce pozisyonunu hazırla',
+                    style: TextStyle(
+                      color: feedbackColor,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 15,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    postureWarning,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      height: 1.35,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CameraPositionWarningCard extends StatelessWidget {
+  final String exerciseName;
+
+  const _CameraPositionWarningCard({required this.exerciseName});
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.orangeAccent.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: Colors.orangeAccent.withValues(alpha: 0.30),
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(
+              Icons.videocam_rounded,
+              color: Colors.orangeAccent,
+              size: 28,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Kamera Pozisyonunu Kontrol Et',
+                    style: TextStyle(
+                      color: Colors.orangeAccent,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    exerciseName == 'Push-up'
+                        ? 'Push-up analizi için vücudunun yandan veya çapraz açıdan tamamen göründüğünden emin ol.'
+                        : 'Analiz başlamadan önce tüm vücudunun kamerada göründüğünden ve yeterli mesafede durduğundan emin ol.',
+                    style: const TextStyle(
+                      color: AppColors.textSoft,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

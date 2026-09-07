@@ -12,17 +12,17 @@ class ResultPage extends StatelessWidget {
   const ResultPage({super.key, required this.result});
 
   String get scoreLabel {
-    if (result.score >= 90) return 'Excellent';
-    if (result.score >= 75) return 'Good';
-    if (result.score >= 50) return 'Needs Improvement';
-    return 'Risky Form';
+    if (result.score >= 90) return 'Mükemmel';
+    if (result.score >= 75) return 'İyi';
+    if (result.score >= 50) return 'Geliştirilmeli';
+    return 'Riskli Form';
   }
 
   String get riskLevel {
-    if (result.score >= 90) return 'Very Low Risk';
-    if (result.score >= 75) return 'Low Risk';
-    if (result.score >= 50) return 'Medium Risk';
-    return 'High Risk';
+    if (result.score >= 90) return 'Çok Düşük Risk';
+    if (result.score >= 75) return 'Düşük Risk';
+    if (result.score >= 50) return 'Orta Risk';
+    return 'Yüksek Risk';
   }
 
   Color get scoreColor {
@@ -32,9 +32,20 @@ class ResultPage extends StatelessWidget {
     return Colors.redAccent;
   }
 
+  String get formattedDate {
+    final now = DateTime.now();
+    final day = now.day.toString().padLeft(2, '0');
+    final month = now.month.toString().padLeft(2, '0');
+    final year = now.year.toString();
+    final hour = now.hour.toString().padLeft(2, '0');
+    final minute = now.minute.toString().padLeft(2, '0');
+
+    return '$day.$month.$year - $hour:$minute';
+  }
+
   String get scoreDescription {
     if (result.score >= 90) {
-      return 'Formun oldukça iyi görünüyor. Küçük düzeltmelerle hareket kaliten daha da artabilir.';
+      return 'Formun oldukça iyi görünüyor. Küçük teknik düzeltmelerle hareket kaliten daha da artabilir.';
     }
 
     if (result.score >= 75) {
@@ -46,6 +57,50 @@ class ResultPage extends StatelessWidget {
     }
 
     return 'Form hataları sakatlanma riskini artırabilir. Hareketi daha yavaş ve kontrollü çalışmalısın.';
+  }
+
+  String _correctionForMistake(String mistake) {
+    final lowerMistake = mistake.toLowerCase();
+    final lowerExercise = result.exerciseName.toLowerCase();
+
+    if (lowerExercise.contains('squat')) {
+      if (lowerMistake.contains('diz')) {
+        return 'Dizlerini içeri kapatma; dizlerini ayak parmaklarınla aynı hatta tut.';
+      }
+      if (lowerMistake.contains('sırt') || lowerMistake.contains('gövde')) {
+        return 'Göğsünü açık tut, sırtını nötr pozisyonda koru ve kontrollü in.';
+      }
+      if (lowerMistake.contains('kontrollü') || lowerMistake.contains('hız')) {
+        return 'İniş fazını yavaşlat, kalkarken ağırlığı topuklarına dengeli aktar.';
+      }
+      return 'Squat sırasında ayaklarını omuz genişliğinde aç, kalçanı geriye al ve kontrollü tekrar yap.';
+    }
+
+    if (lowerExercise.contains('push')) {
+      if (lowerMistake.contains('kalça') || lowerMistake.contains('core')) {
+        return 'Karın bölgeni sıkı tut, omuz-kalça-ayak hattını düz koru.';
+      }
+      if (lowerMistake.contains('dirsek')) {
+        return 'Dirseklerini fazla dışa açma; gövdene yaklaşık 45 derece açıyla indir.';
+      }
+      if (lowerMistake.contains('omuz')) {
+        return 'Omuzlarını kulaklarına yaklaştırma; kürek kemiklerini kontrollü tut.';
+      }
+      return 'Push-up sırasında gövdeni tek çizgi halinde tut ve göğsünü kontrollü şekilde indir.';
+    }
+
+    if (lowerExercise.contains('plank')) {
+      if (lowerMistake.contains('bel') || lowerMistake.contains('kalça')) {
+        return 'Belini çökertme, kalçanı aşırı kaldırma; core bölgeni aktif tut.';
+      }
+      return 'Plank sırasında omuz, kalça ve ayak hizanı sabit tut.';
+    }
+
+    if (lowerMistake.contains('hata') || lowerMistake.contains('teknik')) {
+      return 'Hareketi daha yavaş yap, eklem hizalarını koru ve aynada/kamerada formunu kontrol et.';
+    }
+
+    return 'Hareketi kontrollü tempoda tekrar et, duruşunu koru ve kamerada tüm vücudunun göründüğünden emin ol.';
   }
 
   @override
@@ -65,6 +120,14 @@ class ResultPage extends StatelessWidget {
                   scoreLabel: scoreLabel,
                 ),
                 const SizedBox(height: 16),
+                _AnalysisSummaryCard(
+                  exerciseName: result.exerciseName,
+                  formattedDate: formattedDate,
+                  score: result.score,
+                  repetitionCount: result.repetitionCount,
+                  scoreColor: scoreColor,
+                ),
+                const SizedBox(height: 16),
                 _ScoreReportCard(
                   result: result,
                   scoreLabel: scoreLabel,
@@ -80,11 +143,9 @@ class ResultPage extends StatelessWidget {
                 const SizedBox(height: 16),
                 _MetricsGrid(result: result),
                 const SizedBox(height: 16),
-                _InfoCard(
-                  title: 'Tespit Edilen Form Hataları',
-                  icon: Icons.warning_amber_rounded,
-                  items: result.mistakes,
-                  iconColor: Colors.orangeAccent,
+                _MistakesWithCorrectionsCard(
+                  mistakes: result.mistakes,
+                  correctionBuilder: _correctionForMistake,
                 ),
                 const SizedBox(height: 16),
                 _InfoCard(
@@ -168,26 +229,163 @@ class _StatusBadgesRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        _StatusBadge(
-          text: 'Backend AI Result',
-          color: scoreColor,
-          icon: Icons.auto_awesome_rounded,
-        ),
-        const SizedBox(width: 10),
-        const _StatusBadge(
-          text: 'API Connected',
-          color: AppColors.purpleGlow,
-          icon: Icons.cloud_done_rounded,
-        ),
-        const Spacer(),
-        _StatusBadge(
-          text: scoreLabel,
-          color: scoreColor,
-          icon: Icons.verified_rounded,
-        ),
-      ],
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          _StatusBadge(
+            text: 'Backend AI Result',
+            color: scoreColor,
+            icon: Icons.auto_awesome_rounded,
+          ),
+          const SizedBox(width: 10),
+          const _StatusBadge(
+            text: 'API Connected',
+            color: AppColors.purpleGlow,
+            icon: Icons.cloud_done_rounded,
+          ),
+          const SizedBox(width: 10),
+          _StatusBadge(
+            text: scoreLabel,
+            color: scoreColor,
+            icon: Icons.verified_rounded,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AnalysisSummaryCard extends StatelessWidget {
+  final String exerciseName;
+  final String formattedDate;
+  final int score;
+  final int repetitionCount;
+  final Color scoreColor;
+
+  const _AnalysisSummaryCard({
+    required this.exerciseName,
+    required this.formattedDate,
+    required this.score,
+    required this.repetitionCount,
+    required this.scoreColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(
+                Icons.assignment_turned_in_rounded,
+                color: AppColors.purpleGlow,
+              ),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Analiz Özeti',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _SummaryBox(
+                  title: 'Hareket',
+                  value: exerciseName,
+                  icon: Icons.fitness_center_rounded,
+                  color: AppColors.purpleGlow,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _SummaryBox(
+                  title: 'Tarih',
+                  value: formattedDate,
+                  icon: Icons.calendar_month_rounded,
+                  color: Colors.lightBlueAccent,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _SummaryBox(
+                  title: 'Skor',
+                  value: '$score/100',
+                  icon: Icons.speed_rounded,
+                  color: scoreColor,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _SummaryBox(
+                  title: 'Tekrar / Frame',
+                  value: '$repetitionCount',
+                  icon: Icons.repeat_rounded,
+                  color: Colors.greenAccent,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SummaryBox extends StatelessWidget {
+  final String title;
+  final String value;
+  final IconData icon;
+  final Color color;
+
+  const _SummaryBox({
+    required this.title,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color, size: 22),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.w900,
+              fontSize: 16,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            title,
+            style: const TextStyle(color: AppColors.textSoft, fontSize: 11),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -361,7 +559,7 @@ class _MetricsGrid extends StatelessWidget {
               Expanded(
                 child: _MetricItem(
                   icon: Icons.repeat_rounded,
-                  title: 'Frame',
+                  title: 'Tekrar / Frame',
                   value: '${result.repetitionCount}',
                 ),
               ),
@@ -426,6 +624,8 @@ class _MetricItem extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
           ),
           const SizedBox(height: 4),
@@ -433,6 +633,116 @@ class _MetricItem extends StatelessWidget {
             title,
             textAlign: TextAlign.center,
             style: const TextStyle(color: AppColors.textSoft, fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MistakesWithCorrectionsCard extends StatelessWidget {
+  final List<String> mistakes;
+  final String Function(String mistake) correctionBuilder;
+
+  const _MistakesWithCorrectionsCard({
+    required this.mistakes,
+    required this.correctionBuilder,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final safeMistakes = mistakes.isEmpty
+        ? ['Belirgin form hatası algılanmadı.']
+        : mistakes;
+
+    return GlassCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.orangeAccent),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Tespit Edilen Hatalar ve Düzeltme Önerileri',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          ...safeMistakes.map(
+            (mistake) => Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.orangeAccent.withValues(alpha: 0.09),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: Colors.orangeAccent.withValues(alpha: 0.22),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(
+                        Icons.error_outline_rounded,
+                        size: 19,
+                        color: Colors.orangeAccent,
+                      ),
+                      const SizedBox(width: 9),
+                      Expanded(
+                        child: Text(
+                          mistake,
+                          style: const TextStyle(
+                            height: 1.4,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.purpleGlow.withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: AppColors.purpleGlow.withValues(alpha: 0.22),
+                      ),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(
+                          Icons.build_circle_rounded,
+                          color: AppColors.purpleGlow,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            correctionBuilder(mistake),
+                            style: const TextStyle(
+                              color: AppColors.textSoft,
+                              height: 1.45,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
@@ -455,6 +765,8 @@ class _InfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final safeItems = items.isEmpty ? ['Öneri bulunamadı.'] : items;
+
     return GlassCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -475,7 +787,7 @@ class _InfoCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 14),
-          ...items.map(
+          ...safeItems.map(
             (item) => Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: Row(
