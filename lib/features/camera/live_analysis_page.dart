@@ -323,13 +323,22 @@ class _LiveAnalysisPageState extends State<LiveAnalysisPage> {
       final String feedback =
           backendResult.feedback?.toString() ??
           'Analiz sonucu backend tarafından başarıyla oluşturuldu.';
-
       final AnalysisResult result = AnalysisResult(
         exerciseName: exerciseName,
         score: accuracy,
+        riskPercent: 100 - accuracy,
         repetitionCount: repetitionCount > 0 ? repetitionCount : totalFrames,
+        validReps: accuracy >= 75 ? repetitionCount : 0,
+        invalidReps: accuracy >= 75 ? 0 : repetitionCount,
         confidence: accuracy.toDouble(),
+        durationSeconds: totalFrames.toDouble(),
         duration: '$totalFrames frame',
+        totalFrames: totalFrames,
+        processedFrames: totalFrames,
+        minKneeAngle: null,
+        averageMinKneeAngle: null,
+        rangeOfMotion: averageMotion,
+        selectedSide: 'unavailable',
         movementAngle: averageMotion.toStringAsFixed(2),
         mistakes: accuracy >= 75
             ? [
