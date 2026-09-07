@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Miscellaneous
 *.class
 *.log
@@ -44,32 +43,31 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
-=======
+
 # Python
 venv/
 .venv/
 __pycache__/
-*.pyc
 *.pyo
 
-# AI video files
+# AI local editor settings
+ai/.vscode/
+
+# AI generated analysis outputs (keep directory via .gitkeep)
+ai/data/output/*
+!ai/data/output/.gitkeep
+
+# AI video files (input; output videos covered by ai/data/output/* above)
 ai/data/input/*.mp4
-ai/data/output/*.mp4
 ai/data/input/*.mov
-ai/data/output/*.mov
 
 # Environment files
 .env
 
-# macOS
-.DS_Store
-
-# Flutter
+# Flutter (mobile app)
 mobile/build/
 mobile/.dart_tool/
 mobile/.idea/
-
->>>>>>> 18ee0f7afb14a10e926168e3474990d5178cdcd5
 
 backend/test.db
 
