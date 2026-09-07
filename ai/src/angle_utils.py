@@ -62,11 +62,28 @@ def get_landmark_point(
 
 
 def average_available_values(values: Sequence[float | None]) -> float | None:
-    """Return the mean of non-None values, or None if none are available."""
-    available = [float(v) for v in values if v is not None]
+    """Return the mean of non-None finite values, or None if none are available."""
+    available: list[float] = []
+    for v in values:
+        sanitized = sanitize_angle_value(v)
+        if sanitized is not None:
+            available.append(sanitized)
     if not available:
         return None
     return sum(available) / len(available)
+
+
+def sanitize_angle_value(value: Any) -> float | None:
+    """Convert to float; reject None, NaN, and inf."""
+    if value is None:
+        return None
+    try:
+        out = float(value)
+    except (TypeError, ValueError):
+        return None
+    if out != out or out in (float("inf"), float("-inf")):
+        return None
+    return out
 
 
 # Minimum shoulder–ankle distance in pixels before body-line math is reliable.
@@ -286,17 +303,17 @@ def calculate_pushup_angles(
             alignment_side = "right"
 
         return {
-            "left_elbow": left_elbow,
-            "right_elbow": right_elbow,
+            "left_elbow": sanitize_angle_value(left_elbow),
+            "right_elbow": sanitize_angle_value(right_elbow),
             "avg_elbow": average_available_values([left_elbow, right_elbow]),
-            "left_shoulder": left_shoulder,
-            "right_shoulder": right_shoulder,
+            "left_shoulder": sanitize_angle_value(left_shoulder),
+            "right_shoulder": sanitize_angle_value(right_shoulder),
             "avg_shoulder": average_available_values([left_shoulder, right_shoulder]),
-            "left_hip": left_hip,
-            "right_hip": right_hip,
+            "left_hip": sanitize_angle_value(left_hip),
+            "right_hip": sanitize_angle_value(right_hip),
             "avg_hip": average_available_values([left_hip, right_hip]),
-            "body_alignment_angle": body_alignment_angle,
-            "body_line_offset": body_line_offset,
+            "body_alignment_angle": sanitize_angle_value(body_alignment_angle),
+            "body_line_offset": sanitize_angle_value(body_line_offset),
             "alignment_side": alignment_side,
         }
     except Exception:
@@ -397,21 +414,156 @@ def calculate_knee_angles(
     }
 
 
+def _clamp_angle_deg(angle: float) -> float:
+    if angle != angle:  # NaN
+        return 0.0
+    return max(0.0, min(180.0, float(angle)))
+
+
+def _side_hip_measurement(
+    landmarks: _LandmarkList,
+    shoulder_enum: Any,
+    hip_enum: Any,
+    knee_enum: Any,
+    image_width: int,
+    image_height: int,
+) -> tuple[float | None, float]:
+    """Return (shoulder–hip–knee angle at hip, confidence) for one side."""
+    shoulder = get_landmark_point(landmarks, shoulder_enum, image_width, image_height)
+    hip = get_landmark_point(landmarks, hip_enum, image_width, image_height)
+    knee = get_landmark_point(landmarks, knee_enum, image_width, image_height)
+    if shoulder is None or hip is None or knee is None:
+        return None, 0.0
+    conf = (
+        float(shoulder["visibility"])
+        + float(hip["visibility"])
+        + float(knee["visibility"])
+    ) / 3.0
+    if conf < SIDE_CONFIDENCE_MIN:
+        return None, conf
+    if (
+        min(shoulder["visibility"], hip["visibility"], knee["visibility"])
+        < VISIBILITY_THRESHOLD
+    ):
+        return None, conf
+    angle = _clamp_angle_deg(
+        angle_between_points(
+            (shoulder["x"], shoulder["y"]),
+            (hip["x"], hip["y"]),
+            (knee["x"], knee["y"]),
+        )
+    )
+    return angle, conf
+
+
+def calculate_hip_angles(
+    landmarks: _LandmarkList,
+    pose_landmarks_enum: Any,
+    image_width: int,
+    image_height: int,
+) -> dict[str, Any]:
+    """Compute left/right hip flexion angles (shoulder → hip → knee at hip vertex)."""
+    L = pose_landmarks_enum
+    left, left_conf = _side_hip_measurement(
+        landmarks,
+        L.LEFT_SHOULDER,
+        L.LEFT_HIP,
+        L.LEFT_KNEE,
+        image_width,
+        image_height,
+    )
+    right, right_conf = _side_hip_measurement(
+        landmarks,
+        L.RIGHT_SHOULDER,
+        L.RIGHT_HIP,
+        L.RIGHT_KNEE,
+        image_width,
+        image_height,
+    )
+
+    left_ok = left is not None and left_conf >= SIDE_CONFIDENCE_MIN
+    right_ok = right is not None and right_conf >= SIDE_CONFIDENCE_MIN
+
+    selected_side = "unknown"
+    selected: float | None = None
+    selected_conf = 0.0
+
+    if left_ok and not right_ok:
+        selected_side = "left"
+        selected = float(left)
+        selected_conf = left_conf
+    elif right_ok and not left_ok:
+        selected_side = "right"
+        selected = float(right)
+        selected_conf = right_conf
+    elif left_ok and right_ok:
+        diff = abs(float(left) - float(right))
+        if diff > KNEE_ANGLE_DISAGREE_DEG:
+            if left_conf >= right_conf:
+                selected_side = "left"
+                selected = float(left)
+                selected_conf = left_conf
+            else:
+                selected_side = "right"
+                selected = float(right)
+                selected_conf = right_conf
+        else:
+            selected_side = "both"
+            weight = left_conf + right_conf
+            selected = (float(left) * left_conf + float(right) * right_conf) / weight
+            selected_conf = weight / 2.0
+
+    avg_hip = selected
+    return {
+        "left": left,
+        "right": right,
+        "left_hip": left,
+        "right_hip": right,
+        "average": avg_hip,
+        "avg_hip": avg_hip,
+        "selected_hip": selected,
+        "selected_side": selected_side,
+        "left_confidence": round(left_conf, 4),
+        "right_confidence": round(right_conf, 4),
+        "left_visibility": round(left_conf, 4),
+        "right_visibility": round(right_conf, 4),
+        "selected_confidence": round(selected_conf, 4),
+    }
+
+
 def calculate_torso_lean_angle(
     landmarks: _LandmarkList,
     pose_landmarks_enum: Any,
     image_width: int,
     image_height: int,
 ) -> float | None:
-    """Estimate forward torso lean using the more visible shoulder–hip side.
+    """Estimate torso lean from vertical (0° ≈ upright; larger = more lean).
 
-    Prefer visible side in profile shots instead of blending occluded landmarks.
+    Prefer shoulder/hip midpoints when both sides are reliable; otherwise fall
+    back to the more visible single side (legacy behaviour).
     """
     L = pose_landmarks_enum
     ls = get_landmark_point(landmarks, L.LEFT_SHOULDER, image_width, image_height)
     rs = get_landmark_point(landmarks, L.RIGHT_SHOULDER, image_width, image_height)
     lh = get_landmark_point(landmarks, L.LEFT_HIP, image_width, image_height)
     rh = get_landmark_point(landmarks, L.RIGHT_HIP, image_width, image_height)
+
+    if ls is not None and rs is not None and lh is not None and rh is not None:
+        vis = [
+            float(ls["visibility"]),
+            float(rs["visibility"]),
+            float(lh["visibility"]),
+            float(rh["visibility"]),
+        ]
+        if min(vis) >= VISIBILITY_THRESHOLD and sum(vis) / 4.0 >= SIDE_CONFIDENCE_MIN:
+            sx = (float(ls["x"]) + float(rs["x"])) / 2.0
+            sy = (float(ls["y"]) + float(rs["y"])) / 2.0
+            hx = (float(lh["x"]) + float(rh["x"])) / 2.0
+            hy = (float(lh["y"]) + float(rh["y"])) / 2.0
+            dx = sx - hx
+            dy = hy - sy
+            if dy > 1.0:
+                return abs(math.degrees(math.atan2(abs(dx), dy)))
 
     candidates: list[tuple[float, float, float, float, float]] = []
     if ls is not None and lh is not None:
@@ -437,6 +589,57 @@ def calculate_torso_lean_angle(
     if dy <= 1.0:
         return None
     return abs(math.degrees(math.atan2(abs(dx), dy)))
+
+
+def build_squat_frame_metrics(
+    landmarks: _LandmarkList,
+    pose_landmarks_enum: Any,
+    image_width: int,
+    image_height: int,
+) -> dict[str, Any]:
+    """Combine knee, hip, and torso metrics for one squat analysis frame."""
+    knee = calculate_knee_angles(
+        landmarks, pose_landmarks_enum, image_width, image_height
+    )
+    hip = calculate_hip_angles(
+        landmarks, pose_landmarks_enum, image_width, image_height
+    )
+    torso = calculate_torso_lean_angle(
+        landmarks, pose_landmarks_enum, image_width, image_height
+    )
+
+    avg_knee = knee.get("average")
+    avg_hip = hip.get("avg_hip")
+    metrics_valid = (
+        avg_knee is not None and avg_hip is not None and torso is not None
+    )
+
+    return {
+        # Legacy knee fields used by SquatAnalyzer state machine
+        "left": knee.get("left"),
+        "right": knee.get("right"),
+        "average": avg_knee,
+        "selected_side": knee.get("selected_side"),
+        "left_confidence": knee.get("left_confidence"),
+        "right_confidence": knee.get("right_confidence"),
+        "selected_confidence": knee.get("selected_confidence"),
+        # Explicit knee aliases
+        "left_knee": knee.get("left"),
+        "right_knee": knee.get("right"),
+        "avg_knee": avg_knee,
+        # Hip metrics
+        "left_hip": hip.get("left_hip"),
+        "right_hip": hip.get("right_hip"),
+        "avg_hip": avg_hip,
+        "selected_hip": hip.get("selected_hip"),
+        "hip_selected_side": hip.get("selected_side"),
+        "left_visibility": knee.get("left_confidence"),
+        "right_visibility": knee.get("right_confidence"),
+        # Torso
+        "torso_lean": torso,
+        "torso_lean_deg": torso,
+        "metrics_valid": metrics_valid,
+    }
 
 
 def calculate_pose_confidence(landmarks: _LandmarkList | None, landmark_indices: Sequence[Any]) -> float:
@@ -501,34 +704,24 @@ def estimate_body_bbox(
 def check_camera_distance(
     body_bbox: tuple[int, int, int, int] | None,
     frame_height: int,
+    frame_width: int | None = None,
 ) -> dict[str, Any]:
-    """Estimate whether the subject is too far from or too close to the camera."""
-    if body_bbox is None or frame_height <= 0:
-        return {
-            "status": "unknown",
-            "message": "Camera distance unknown",
-            "ratio": None,
-        }
+    """Estimate whether the subject framing is too far/close (bbox scale, not metres)."""
+    from camera_utils import (
+        build_camera_frame_info,
+        compute_body_bbox_metrics,
+        measure_instant_camera_status,
+    )
 
-    _min_x, min_y, _max_x, max_y = body_bbox
-    bbox_height = max_y - min_y
-    ratio = bbox_height / float(frame_height)
+    if frame_height <= 0 or frame_width is None or frame_width <= 0:
+        return build_camera_frame_info(
+            status="unknown",
+            metrics=compute_body_bbox_metrics(None, 0, 0),
+            confirmed=True,
+        )
 
-    if ratio < 0.35:
-        return {
-            "status": "too_far",
-            "message": "Move closer to camera",
-            "ratio": ratio,
-        }
-    if ratio > 0.90:
-        return {
-            "status": "too_close",
-            "message": "Move away from camera",
-            "ratio": ratio,
-        }
-    return {
-        "status": "good",
-        "message": "Camera distance OK",
-        "ratio": ratio,
-    }
+    metrics = compute_body_bbox_metrics(body_bbox, frame_width, frame_height)
+    status = measure_instant_camera_status(metrics.get("body_scale"))
+    info = build_camera_frame_info(status=status, metrics=metrics, confirmed=True)
+    return info
 

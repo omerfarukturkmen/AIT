@@ -1,0 +1,60 @@
+{
+  "videos": [
+    {
+      "id": "squat_verified_img_5512",
+      "path": "../../../backend/uploaded_videos/IMG_5512.mp4",
+      "exercise_type": "squat",
+      "camera_angle": "unknown",
+      "expected_reps": 2,
+      "expected_successful": 2,
+      "expected_failed": 0,
+      "expected_total": 2,
+      "expected_analyzable": true,
+      "expected_score_overall": null,
+      "expected_feedback_codes": null,
+      "notes": "Verified by existing integration tests (test_squat_analyzer / depth / false_positives): successful=2, total=2. Score/feedback not asserted as golden expectations."
+    },
+    {
+      "id": "squat_verified_img_5512_copy",
+      "path": "../../../backend/uploaded_videos/IMG_5512 kopyası.mp4",
+      "exercise_type": "squat",
+      "camera_angle": "unknown",
+      "expected_reps": null,
+      "expected_successful": null,
+      "expected_failed": null,
+      "expected_total": null,
+      "expected_analyzable": null,
+      "expected_score_overall": null,
+      "expected_feedback_codes": null,
+      "notes": "Duplicate filename copy; expected reps not independently verified (do not treat file-size similarity as ground truth)."
+    },
+    {
+      "id": "squat_input_default",
+      "path": "../../data/input/input.mp4",
+      "exercise_type": "squat",
+      "camera_angle": "unknown",
+      "expected_reps": null,
+      "expected_successful": null,
+      "expected_failed": null,
+      "expected_total": null,
+      "expected_analyzable": null,
+      "expected_score_overall": null,
+      "expected_feedback_codes": null,
+      "notes": "Default AI input video; expected reps not documented as an independent human label in repository fixtures."
+    },
+    {
+      "id": "squat_screen_recording_unknown",
+      "path": "../../../backend/uploaded_videos/Ekran Kaydı 2026-07-12 20.18.32.mov",
+      "exercise_type": "squat",
+      "camera_angle": "unknown",
+      "expected_reps": null,
+      "expected_successful": null,
+      "expected_failed": null,
+      "expected_total": null,
+      "expected_analyzable": null,
+      "expected_score_overall": null,
+      "expected_feedback_codes": null,
+      "notes": "Screen recording; squat expected result not defined in repository."
+    }
+  ]
+}

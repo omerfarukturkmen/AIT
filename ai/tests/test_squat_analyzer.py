@@ -20,10 +20,29 @@ from squat_analyzer import (  # noqa: E402
 )
 
 
+def _hip_for_knee(angle: float) -> float:
+    if angle >= 155:
+        return angle
+    if angle <= 90:
+        return max(75.0, angle - 5.0)
+    return min(angle + 12.0, 160.0)
+
+
 def _feed(analyzer: SquatAnalyzer, angles: list[float], fps: float = 30.0) -> None:
     for angle in angles:
+        hip = _hip_for_knee(angle)
         analyzer.analyze_frame(
-            {"left": angle, "right": angle, "average": angle, "selected_side": "right"},
+            {
+                "left": angle,
+                "right": angle,
+                "average": angle,
+                "avg_knee": angle,
+                "left_hip": hip,
+                "right_hip": hip,
+                "avg_hip": hip,
+                "selected_hip": hip,
+                "selected_side": "right",
+            },
             pose_confidence=0.9,
             torso_lean=10.0,
             fps=fps,
@@ -174,9 +193,12 @@ def test_real_video_img_5512_if_present():
     )
     ai = out["ai_result"]
     metrics = out["metrics"]
+    domain = out.get("domain_result") or {}
     assert metrics["total_frames"] == 332
     assert abs(metrics["duration_seconds"] - 11.08) < 0.25
-    assert ai["rep_count"] == 2
-    assert len(ai.get("rep_history") or []) == 2
+    assert ai["reps"]["successful"] == 2
+    assert ai["reps"]["total"] == 2
+    assert domain.get("rep_count") == 2
+    assert len(domain.get("rep_history") or []) == 2
     assert metrics["processed_frames"] > 0
     assert metrics["mean_landmark_visibility"] > 0

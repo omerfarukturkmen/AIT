@@ -343,14 +343,15 @@ def test_aligned_frames_reset_candidate_error():
     assert analyzer.rep_in_progress is True
     analyzer.candidate_form_state = None
     analyzer.candidate_form_frames = 0
+    analyzer.confirmed_form_issues = set()
     analyzer.current_form_state = "unknown"
     analyzer.analyze_frame(_a(120, body_line_offset=0.09, body_alignment_angle=150))
     analyzer.analyze_frame(_a(120, body_line_offset=0.09, body_alignment_angle=150))
     assert analyzer.candidate_form_frames == 2
     analyzer.analyze_frame(_a(120, body_line_offset=0.01, body_alignment_angle=175))
     assert analyzer.candidate_form_state is None
-    assert analyzer.candidate_form_frames == 0
-    assert analyzer.current_form_state == "aligned"
+    assert analyzer.candidate_form_frames == 1
+    assert "hips_sagging" not in analyzer.confirmed_form_issues
 
 
 def test_hips_sagging_counted_once_per_rep():

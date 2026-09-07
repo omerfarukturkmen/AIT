@@ -115,6 +115,8 @@ def test_show_preview_false_does_not_call_draw(tmp_path: Path):
         patch("video_processor.draw_pose_landmarks") as draw_mock,
         patch("video_processor._draw_squat_hud") as squat_hud,
         patch("video_processor.draw_pushup_hud") as pushup_hud,
+        patch("squat_analyzer.draw_squat_hud") as squat_mod_hud,
+        patch("pushup_analyzer.draw_pushup_hud") as pushup_mod_hud,
     ):
         # First read validates, then POS_FRAMES reset, then loop read once.
         fake_cap.read.side_effect = [
@@ -132,3 +134,5 @@ def test_show_preview_false_does_not_call_draw(tmp_path: Path):
         draw_mock.assert_not_called()
         squat_hud.assert_not_called()
         pushup_hud.assert_not_called()
+        squat_mod_hud.assert_not_called()
+        pushup_mod_hud.assert_not_called()
