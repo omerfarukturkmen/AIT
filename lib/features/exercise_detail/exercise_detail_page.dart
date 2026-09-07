@@ -6,6 +6,7 @@ import '../../widgets/glass_card.dart';
 import '../../widgets/premium_background.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/state/favorite_exercises_store.dart';
+
 class ExerciseDetailPage extends StatelessWidget {
   final String exerciseName;
 
@@ -24,49 +25,53 @@ class ExerciseDetailPage extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Row(
-  children: [
-    IconButton(
-      onPressed: () => Navigator.pop(context),
-      icon: const Icon(Icons.arrow_back_rounded),
-    ),
-    Expanded(
-      child: Text(
-        detail.name,
-        textAlign: TextAlign.center,
-        style: const TextStyle(
-          fontSize: 22,
-          fontWeight: FontWeight.w900,
-        ),
-      ),
-    ),
-    ValueListenableBuilder<Set<String>>(
-      valueListenable: FavoriteExercisesStore.favorites,
-      builder: (context, favorites, child) {
-        final isFavorite = favorites.contains(detail.name);
+                  children: [
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.arrow_back_rounded),
+                    ),
+                    Expanded(
+                      child: Text(
+                        detail.name,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                    ValueListenableBuilder<Set<String>>(
+                      valueListenable: FavoriteExercisesStore.favorites,
+                      builder: (context, favorites, child) {
+                        final isFavorite = favorites.contains(detail.name);
 
-        return IconButton(
-          onPressed: () {
-            FavoriteExercisesStore.toggleFavorite(detail.name);
+                        return IconButton(
+                          onPressed: () {
+                            FavoriteExercisesStore.toggleFavorite(detail.name);
 
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  isFavorite
-                      ? '${detail.name} favorilerden çıkarıldı.'
-                      : '${detail.name} favorilere eklendi.',
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  isFavorite
+                                      ? '${detail.name} favorilerden çıkarıldı.'
+                                      : '${detail.name} favorilere eklendi.',
+                                ),
+                              ),
+                            );
+                          },
+                          icon: Icon(
+                            isFavorite
+                                ? Icons.favorite_rounded
+                                : Icons.favorite_border_rounded,
+                            color: isFavorite
+                                ? Colors.redAccent
+                                : AppColors.textSoft,
+                          ),
+                        );
+                      },
+                    ),
+                  ],
                 ),
-              ),
-            );
-          },
-          icon: Icon(
-            isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-            color: isFavorite ? Colors.redAccent : AppColors.textSoft,
-          ),
-        );
-      },
-    ),
-  ],
-),
                 const SizedBox(height: 16),
                 GlassCard(
                   child: Column(

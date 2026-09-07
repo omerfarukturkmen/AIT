@@ -76,10 +76,7 @@ class ProfilePage extends StatelessWidget {
   int _calculateAverageScore(List<AnalysisResult> results) {
     if (results.isEmpty) return 0;
 
-    final total = results.fold<int>(
-      0,
-      (sum, result) => sum + result.score,
-    );
+    final total = results.fold<int>(0, (sum, result) => sum + result.score);
 
     return (total / results.length).round();
   }
@@ -130,24 +127,16 @@ class _ProfileHeaderCard extends StatelessWidget {
           const SizedBox(height: 16),
           const Text(
             'AIT Kullanıcısı',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w900,
-            ),
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: 6),
           const Text(
             'AI destekli fitness form takibi',
-            style: TextStyle(
-              color: AppColors.textSoft,
-            ),
+            style: TextStyle(color: AppColors.textSoft),
           ),
           const SizedBox(height: 16),
           Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 10,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
               color: AppColors.purpleGlow.withValues(alpha: 0.14),
               borderRadius: BorderRadius.circular(99),
@@ -188,11 +177,7 @@ class _ProfileStatCard extends StatelessWidget {
     return GlassCard(
       child: Column(
         children: [
-          Icon(
-            icon,
-            color: AppColors.purpleGlow,
-            size: 25,
-          ),
+          Icon(icon, color: AppColors.purpleGlow, size: 25),
           const SizedBox(height: 10),
           TweenAnimationBuilder<int>(
             tween: IntTween(begin: 0, end: parsedValue),
@@ -213,10 +198,7 @@ class _ProfileStatCard extends StatelessWidget {
           Text(
             title,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: AppColors.textSoft,
-              fontSize: 12,
-            ),
+            style: const TextStyle(color: AppColors.textSoft, fontSize: 12),
           ),
         ],
       ),
@@ -227,9 +209,7 @@ class _ProfileStatCard extends StatelessWidget {
 class _WeeklyProgressChartCard extends StatelessWidget {
   final List<AnalysisResult> results;
 
-  const _WeeklyProgressChartCard({
-    required this.results,
-  });
+  const _WeeklyProgressChartCard({required this.results});
 
   List<FlSpot> get spots {
     final latest = results.take(5).toList().reversed.toList();
@@ -246,10 +226,7 @@ class _WeeklyProgressChartCard extends StatelessWidget {
 
     return List.generate(
       latest.length,
-      (index) => FlSpot(
-        index.toDouble(),
-        latest[index].score.toDouble(),
-      ),
+      (index) => FlSpot(index.toDouble(), latest[index].score.toDouble()),
     );
   }
 
@@ -269,18 +246,12 @@ class _WeeklyProgressChartCard extends StatelessWidget {
         children: [
           const Text(
             'Haftalık Gelişim',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w900,
-            ),
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: 6),
           const Text(
             'Son analiz skorlarına göre form gelişimin',
-            style: TextStyle(
-              color: AppColors.textSoft,
-              fontSize: 13,
-            ),
+            style: TextStyle(color: AppColors.textSoft, fontSize: 13),
           ),
           const SizedBox(height: 18),
           Row(
@@ -362,12 +333,7 @@ class _WeeklyProgressChartCard extends StatelessWidget {
                     lineBarsData: [
                       LineChartBarData(
                         spots: spots
-                            .map(
-                              (spot) => FlSpot(
-                                spot.x,
-                                spot.y * value,
-                              ),
-                            )
+                            .map((spot) => FlSpot(spot.x, spot.y * value))
                             .toList(),
                         isCurved: true,
                         barWidth: 5,
@@ -434,17 +400,11 @@ class _MiniMetricCard extends StatelessWidget {
           ],
         ),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: AppColors.purpleGlow.withValues(alpha: 0.2),
-        ),
+        border: Border.all(color: AppColors.purpleGlow.withValues(alpha: 0.2)),
       ),
       child: Row(
         children: [
-          Icon(
-            icon,
-            color: AppColors.purpleGlow,
-            size: 22,
-          ),
+          Icon(icon, color: AppColors.purpleGlow, size: 22),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -485,10 +445,7 @@ class _AchievementsCard extends StatelessWidget {
         children: [
           const Text(
             'Rozetler',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w900,
-            ),
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: 14),
           Wrap(
@@ -559,18 +516,12 @@ class _GoalCard extends StatelessWidget {
         children: [
           Text(
             'Hedef',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w900,
-            ),
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
           ),
           SizedBox(height: 10),
           Text(
             'Fitness hareketlerinde form hatalarını azaltmak, sakatlanma riskini düşürmek ve daha güvenli antrenman alışkanlığı geliştirmek.',
-            style: TextStyle(
-              color: AppColors.textSoft,
-              height: 1.5,
-            ),
+            style: TextStyle(color: AppColors.textSoft, height: 1.5),
           ),
         ],
       ),

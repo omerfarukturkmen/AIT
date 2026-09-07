@@ -1,0 +1,16 @@
+{
+  "videos": [
+    {
+      "id": "pushup_smoke_unverified",
+      "path": "../../../backend/uploaded_videos/pushup_smoke.mp4",
+      "exercise_type": "pushup",
+      "expected_reps": null,
+      "expected_successful": null,
+      "expected_failed": null,
+      "expected_total": null,
+      "expected_score_overall": null,
+      "expected_feedback_codes": null,
+      "notes": "Filename suggests push-up smoke usage, but repository has no independently verified human expected rep counts for this file. Same byte-size as IMG_5512 squat sample — do not invent expected reps from filename or current AI output."
+    }
+  ]
+}

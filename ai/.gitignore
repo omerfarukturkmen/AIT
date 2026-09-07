@@ -1,0 +1,4 @@
+# Local AI model binaries (download via scripts/download_pose_model.py)
+models/*.task
+
+venv312/
