@@ -301,7 +301,6 @@ class _LiveAnalysisPageState extends State<LiveAnalysisPage> {
       final dynamic backendResult = await ApiService.uploadVideoBytes(
         videoBytes: videoBytes,
         fileName: videoName,
-        userId: 1,
         exerciseName: widget.exerciseName,
       );
 

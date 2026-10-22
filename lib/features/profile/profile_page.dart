@@ -3,10 +3,14 @@ import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/state/analysis_history_store.dart';
+import '../../../core/services/auth_service.dart';
+import '../../../core/state/auth_store.dart';
 import '../../../data/fake_data.dart';
 import '../../../models/analysis_result_model.dart';
+import '../../../models/auth_session_model.dart';
 import '../../../widgets/glass_card.dart';
 import '../../../widgets/premium_background.dart';
+import '../auth/auth_page.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
@@ -63,6 +67,10 @@ class ProfilePage extends StatelessWidget {
                     const _AchievementsCard(),
                     const SizedBox(height: 18),
                     const _GoalCard(),
+                    const SizedBox(height: 18),
+                    const _SignOutButton(),
+                    const SizedBox(height: 10),
+                    const _DeleteAccountButton(),
                   ],
                 ),
               );
@@ -87,6 +95,134 @@ class ProfilePage extends StatelessWidget {
     return results
         .map((result) => result.score)
         .reduce((current, next) => current > next ? current : next);
+  }
+}
+
+class _DeleteAccountButton extends StatefulWidget {
+  const _DeleteAccountButton();
+
+  @override
+  State<_DeleteAccountButton> createState() => _DeleteAccountButtonState();
+}
+
+class _DeleteAccountButtonState extends State<_DeleteAccountButton> {
+  bool _isDeleting = false;
+
+  Future<void> _confirmAndDelete() async {
+    final session = AuthStore.session.value;
+    if (session == null) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        icon: const Icon(Icons.warning_amber_rounded, color: AppColors.red),
+        title: const Text('Hesabını kalıcı olarak sil'),
+        content: const Text(
+          'Hesabın, yüklediğin tüm videolar ve analiz sonuçların sunucudan '
+          'kalıcı olarak silinecek. Bu işlem geri alınamaz.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Vazgeç'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.red),
+            child: const Text('Kalıcı Olarak Sil'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context, rootNavigator: true);
+    setState(() => _isDeleting = true);
+    try {
+      await AuthService.deleteAccount(session.accessToken);
+      await AuthStore.signOut();
+      navigator.pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const AuthPage()),
+        (_) => false,
+      );
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Hesabın ve tüm verilerin silindi.')),
+      );
+    } on AuthException catch (error) {
+      if (!mounted) return;
+      setState(() => _isDeleting = false);
+      messenger.showSnackBar(SnackBar(content: Text(error.message)));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton.icon(
+      onPressed: _isDeleting ? null : _confirmAndDelete,
+      icon: _isDeleting
+          ? const SizedBox(
+              height: 18,
+              width: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.delete_forever_rounded),
+      label: Text(_isDeleting ? 'Hesap siliniyor…' : 'Hesabımı Sil'),
+      style: TextButton.styleFrom(
+        foregroundColor: AppColors.red,
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+      ),
+    );
+  }
+}
+
+class _SignOutButton extends StatelessWidget {
+  const _SignOutButton();
+
+  Future<void> _confirmSignOut(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Çıkış yap'),
+        content: const Text('Hesabından çıkış yapmak istediğine emin misin?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Vazgeç'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.red),
+            child: const Text('Çıkış Yap'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    await AuthStore.signOut();
+    if (!context.mounted) return;
+    Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const AuthPage()),
+      (_) => false,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
+      onPressed: () => _confirmSignOut(context),
+      icon: const Icon(Icons.logout_rounded),
+      label: const Text('Çıkış Yap'),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: AppColors.red,
+        side: BorderSide(color: AppColors.red.withValues(alpha: 0.5)),
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        textStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+      ),
+    );
   }
 }
 
@@ -125,14 +261,29 @@ class _ProfileHeaderCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          const Text(
-            'AIT Kullanıcısı',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            'AI destekli fitness form takibi',
-            style: TextStyle(color: AppColors.textSoft),
+          ValueListenableBuilder<AuthSession?>(
+            valueListenable: AuthStore.session,
+            builder: (context, session, _) {
+              final user = session?.user;
+              return Column(
+                children: [
+                  Text(
+                    user?.fullName ?? 'AIT Kullanıcısı',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    user?.email ?? 'AI destekli fitness form takibi',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: AppColors.textSoft),
+                  ),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 16),
           Container(

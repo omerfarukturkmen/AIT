@@ -7,9 +7,10 @@ import '../../data/analysis_result_mapper.dart';
 import '../../data/api_service.dart';
 import '../../models/analysis_result_model.dart';
 import '../../models/backend_analysis_response.dart';
+import '../api_config.dart';
 
 class AnalysisService {
-  static const String baseUrl = 'http://127.0.0.1:8000';
+  static const String baseUrl = ApiConfig.baseUrl;
 
   Future<AnalysisResult> analyzeVideo({
     required File videoFile,
@@ -17,6 +18,7 @@ class AnalysisService {
   }) async {
     final uri = Uri.parse('$baseUrl/upload-video');
     final request = http.MultipartRequest('POST', uri);
+    request.headers.addAll(ApiService.authHeaders());
 
     request.files.add(
       await http.MultipartFile.fromPath('file', videoFile.path),
@@ -24,7 +26,6 @@ class AnalysisService {
     request.fields['exercise_type'] = ApiService.normalizeExerciseType(
       exerciseName,
     );
-    request.fields['user_id'] = '1';
 
     try {
       final streamedResponse = await request.send();

@@ -1,14 +1,14 @@
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from fastapi import Depends, FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from database import engine, Base, SessionLocal
 from ai_analyzer import AnalysisError, analyze_video
-from auth import router as auth_router
+from auth import get_current_user, migrate_users_table, router as auth_router
 import models
 import logging
-import shutil
 import os
 import time
 import traceback
+import uuid
 
 logging.basicConfig(
     level=logging.INFO,
@@ -21,17 +21,30 @@ app = FastAPI()
 app.include_router(auth_router)
 
 Base.metadata.create_all(bind=engine)
+migrate_users_table(engine)
 
+# Auth uses a Bearer header (no cookies), so credentials are not allowed.
+# ALLOWED_ORIGINS: comma-separated list for deployed web clients; by default
+# only localhost origins (Flutter web dev server) are accepted.
+_allowed_origins = [
+    origin.strip()
+    for origin in os.environ.get("ALLOWED_ORIGINS", "").split(",")
+    if origin.strip()
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=_allowed_origins,
+    allow_origin_regex=None
+    if _allowed_origins
+    else r"^http://(localhost|127\.0\.0\.1)(:\d+)?$",
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "DELETE"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
-UPLOAD_FOLDER = "uploaded_videos"
+UPLOAD_FOLDER = os.environ.get("UPLOAD_FOLDER", "uploaded_videos")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+MAX_UPLOAD_BYTES = int(os.environ.get("MAX_UPLOAD_MB", "200")) * 1024 * 1024
 
 SUPPORTED_EXERCISES = {"squat", "push-up", "pushup", "push_up"}
 
@@ -56,20 +69,14 @@ def home():
 @app.post("/upload-video")
 async def upload_video(
     file: UploadFile = File(...),
-    user_id: int = Form(...),
-    exercise_type: str = Form(...)
+    exercise_type: str = Form(...),
+    current_user: models.User = Depends(get_current_user),
 ):
     start_time = time.time()
+    # The owner always comes from the session token; a client-sent user_id
+    # field is ignored so nobody can upload on behalf of another user.
+    user_id = current_user.id
     db = SessionLocal()
-
-    user = db.query(models.User).filter(models.User.id == user_id).first()
-
-    if not user:
-        db.close()
-        raise HTTPException(
-            status_code=404,
-            detail="Kullanıcı bulunamadı. Lütfen geçerli bir user_id gönderin."
-        )
 
     if not file.filename:
         db.close()
@@ -94,10 +101,25 @@ async def upload_video(
             detail="Geçersiz video formatı. Desteklenen formatlar: mp4, mov, avi"
         )
 
-    file_path = os.path.join(UPLOAD_FOLDER, file.filename)
+    # Never use the client filename on disk (path traversal / overwrites).
+    stored_filename = f"{uuid.uuid4().hex}{file_extension}"
+    file_path = os.path.join(UPLOAD_FOLDER, stored_filename)
 
+    written = 0
     with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+        while chunk := file.file.read(1024 * 1024):
+            written += len(chunk)
+            if written > MAX_UPLOAD_BYTES:
+                break
+            buffer.write(chunk)
+
+    if written > MAX_UPLOAD_BYTES:
+        os.remove(file_path)
+        db.close()
+        raise HTTPException(
+            status_code=413,
+            detail=f"Video en fazla {MAX_UPLOAD_BYTES // (1024 * 1024)} MB olabilir.",
+        )
 
     file_size = os.path.getsize(file_path) if os.path.exists(file_path) else 0
     logger.info(
@@ -109,7 +131,7 @@ async def upload_video(
     )
 
     video = models.Video(
-        filename=file.filename,
+        filename=stored_filename,
         owner_id=user_id
     )
 
@@ -181,7 +203,7 @@ async def upload_video(
             "risk_percent": analysis_result.get("risk_percent", 0),
             "repetition_count": analysis_result["repetition_count"],
             "data": {
-                "filename": file.filename,
+                "filename": stored_filename,
                 "video_id": video_id,
                 "analysis_id": analysis_id,
                 "user_id": user_id,
@@ -253,8 +275,76 @@ async def upload_video(
         )
 
 
+def _require_same_user(user_id: int, current_user: models.User) -> None:
+    if user_id != current_user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="Bu kullanıcının verilerine erişim yetkin yok.",
+        )
+
+
+def _delete_videos(db, videos) -> None:
+    """Removes videos, their analyses and the files on disk."""
+    for video in videos:
+        db.query(models.AnalysisResult).filter(
+            models.AnalysisResult.video_id == video.id
+        ).delete()
+        file_path = os.path.join(UPLOAD_FOLDER, os.path.basename(video.filename or ""))
+        if video.filename and os.path.isfile(file_path):
+            os.remove(file_path)
+        db.delete(video)
+
+
+@app.delete("/videos/{video_id}")
+def delete_video(
+    video_id: int,
+    current_user: models.User = Depends(get_current_user),
+):
+    db = SessionLocal()
+    try:
+        video = (
+            db.query(models.Video)
+            .filter(models.Video.id == video_id)
+            .filter(models.Video.owner_id == current_user.id)
+            .first()
+        )
+        if video is None:
+            raise HTTPException(status_code=404, detail="Video bulunamadı.")
+        _delete_videos(db, [video])
+        db.commit()
+    finally:
+        db.close()
+
+    logger.info("video deleted id=%s user_id=%s", video_id, current_user.id)
+    return {"status": "success", "message": "Video ve analizleri silindi."}
+
+
+@app.delete("/auth/me")
+def delete_account(current_user: models.User = Depends(get_current_user)):
+    """KVKK: deletes the account together with every video and analysis."""
+    db = SessionLocal()
+    try:
+        videos = (
+            db.query(models.Video)
+            .filter(models.Video.owner_id == current_user.id)
+            .all()
+        )
+        _delete_videos(db, videos)
+        db.query(models.User).filter(models.User.id == current_user.id).delete()
+        db.commit()
+    finally:
+        db.close()
+
+    logger.info("account deleted user_id=%s", current_user.id)
+    return {"status": "success", "message": "Hesabın ve tüm verilerin silindi."}
+
+
 @app.get("/user-videos/{user_id}")
-def get_user_videos(user_id: int):
+def get_user_videos(
+    user_id: int,
+    current_user: models.User = Depends(get_current_user),
+):
+    _require_same_user(user_id, current_user)
     db = SessionLocal()
 
     videos = db.query(models.Video).filter(
@@ -275,7 +365,11 @@ def get_user_videos(user_id: int):
 
 
 @app.get("/user-analysis-history/{user_id}")
-def get_analysis_history(user_id: int):
+def get_analysis_history(
+    user_id: int,
+    current_user: models.User = Depends(get_current_user),
+):
+    _require_same_user(user_id, current_user)
     db = SessionLocal()
 
     analyses = (
@@ -310,13 +404,18 @@ def get_analysis_history(user_id: int):
 
 
 @app.get("/analysis/{analysis_id}")
-def get_analysis_detail(analysis_id: int):
+def get_analysis_detail(
+    analysis_id: int,
+    current_user: models.User = Depends(get_current_user),
+):
     db = SessionLocal()
 
+    # Other users' analyses answer 404 too, so IDs cannot be probed.
     result = (
         db.query(models.AnalysisResult, models.Video)
         .join(models.Video, models.AnalysisResult.video_id == models.Video.id)
         .filter(models.AnalysisResult.id == analysis_id)
+        .filter(models.Video.owner_id == current_user.id)
         .first()
     )
 
@@ -350,12 +449,16 @@ def get_analysis_detail(analysis_id: int):
 
 
 @app.get("/analysis-history")
-def get_filtered_analysis_history(exercise_type: str | None = None):
+def get_filtered_analysis_history(
+    exercise_type: str | None = None,
+    current_user: models.User = Depends(get_current_user),
+):
     db = SessionLocal()
 
     query = (
         db.query(models.AnalysisResult, models.Video)
         .join(models.Video, models.AnalysisResult.video_id == models.Video.id)
+        .filter(models.Video.owner_id == current_user.id)
     )
 
     if exercise_type:
@@ -396,7 +499,8 @@ def get_filtered_analysis_history(exercise_type: str | None = None):
 @app.post("/live-analysis")
 def live_analysis(
     exercise_type: str = Form(...),
-    frame_data: str = Form(...)
+    frame_data: str = Form(...),
+    current_user: models.User = Depends(get_current_user),
 ):
     start_time = time.time()
 

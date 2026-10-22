@@ -113,7 +113,6 @@ class _CameraRecordPageState extends State<CameraRecordPage> {
       final result = await ApiService.uploadVideoBytes(
         videoBytes: videoBytes,
         fileName: videoName,
-        userId: 1,
         exerciseName: widget.exerciseName,
       );
 

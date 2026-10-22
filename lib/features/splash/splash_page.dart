@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/state/auth_store.dart';
 import '../../../core/state/onboarding_store.dart';
 import '../../../widgets/premium_background.dart';
+import '../auth/auth_page.dart';
 import '../navigation/main_navigation_page.dart';
 import '../onboarding/onboarding_page.dart';
 
@@ -21,18 +23,24 @@ class _SplashPageState extends State<SplashPage> {
   }
 
   Future<void> _navigateNext() async {
-    await Future.delayed(const Duration(seconds: 2));
-
-    final hasSeenOnboarding = await OnboardingStore.hasSeenOnboarding();
+    final results = await Future.wait([
+      OnboardingStore.hasSeenOnboarding(),
+      AuthStore.restore().then((_) => AuthStore.isSignedIn),
+      Future.delayed(const Duration(seconds: 2), () => true),
+    ]);
+    final hasSeenOnboarding = results[0];
+    final isSignedIn = results[1];
 
     if (!mounted) return;
 
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-        builder: (_) => hasSeenOnboarding
+        builder: (_) => !hasSeenOnboarding
+            ? const OnboardingPage()
+            : isSignedIn
             ? const MainNavigationPage()
-            : const OnboardingPage(),
+            : const AuthPage(),
       ),
     );
   }

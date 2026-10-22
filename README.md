@@ -14,3 +14,81 @@ A few resources to get you started if this is your first Flutter project:
 For help getting started with Flutter development, view the
 [online documentation](https://docs.flutter.dev/), which offers tutorials,
 samples, guidance on mobile development, and a full API reference.
+
+## Kimlik doğrulama
+
+Giriş/kayıt ekranları `lib/features/auth/` altında, backend uçları
+`backend/auth.py` içindedir.
+
+### Çalıştırma
+
+```bash
+# Backend
+cd backend
+pip install -r requirements.txt
+export AUTH_SECRET_KEY="$(python -c 'import secrets; print(secrets.token_urlsafe(48))')"
+uvicorn main:app --reload
+
+# Uygulama (backend adresi: lib/core/api_config.dart)
+flutter run
+```
+
+| Ortam değişkeni | Açıklama |
+| --- | --- |
+| `AUTH_SECRET_KEY` | Oturum token'larını imzalar. Tanımlı değilse her açılışta geçici bir anahtar üretilir ve sunucu yeniden başlayınca tüm oturumlar düşer. Üretimde zorunlu. |
+| `ALLOWED_ORIGINS` | Web istemcisi için izin verilen origin'ler (virgülle). Boşsa yalnızca `localhost` / `127.0.0.1` kabul edilir. |
+| `MAX_UPLOAD_MB` | Video yükleme sınırı (varsayılan 200). |
+| `DATABASE_URL` | Veritabanı adresi (varsayılan `sqlite:///./test.db`). |
+| `UPLOAD_FOLDER` | Videoların kaydedildiği klasör (varsayılan `uploaded_videos`). |
+
+Flutter tarafında backend adresi: `--dart-define=API_BASE_URL=http://10.0.2.2:8000`
+(Android emülatörü) gibi verilir.
+
+### Güvenlik
+
+- `/` ve `/auth/register`, `/auth/login` dışındaki tüm uçlar
+  `Authorization: Bearer <token>` ister; aksi halde 401 döner.
+- Video sahibi her zaman token'dan belirlenir; istemcinin gönderdiği
+  `user_id` yok sayılır. Kullanıcılar yalnızca kendi video ve analizlerini
+  görebilir (başkasınınki için 403/404).
+- Videolar diskte rastgele (UUID) adla saklanır; istemcinin dosya adı
+  kullanılmaz. Boyut sınırı `MAX_UPLOAD_MB` ile belirlenir.
+- Aynı IP + e-posta için 15 dakikada 5 hatalı girişten sonra 429 döner
+  (bellek içi; birden fazla sunucu sürecinde Redis gibi ortak bir depo gerekir).
+- Oturum token'ı cihazda şifreli saklanır (`flutter_secure_storage`:
+  iOS Keychain, Android Keystore, web'de WebCrypto).
+- KVKK: Kullanıcı kendi videosunu (`DELETE /videos/{id}`) veya hesabını tüm
+  video ve analizleriyle birlikte (`DELETE /auth/me`, Profil → "Hesabımı Sil")
+  kalıcı olarak silebilir.
+- `backend/test.db` ve `backend/uploaded_videos/` git'e eklenmemelidir.
+
+Uçlar: `POST /auth/register`, `POST /auth/login`, `GET /auth/me`,
+`DELETE /auth/me` (`Authorization: Bearer <token>`). Şifreler PBKDF2-SHA256
+ile hash'lenir.
+
+### Canlıya çıkış (HTTPS)
+
+Token her istekte gönderildiği için canlı ortamda bağlantı **mutlaka HTTPS**
+olmalıdır; `http://` yalnızca yerel geliştirme içindir.
+
+1. Backend'i bir TLS sonlandırıcının (Nginx, Caddy veya bulut sağlayıcının
+   yük dengeleyicisi) arkasında çalıştırın; `uvicorn` yalnızca `127.0.0.1`
+   adresini dinlesin.
+2. `AUTH_SECRET_KEY`'i güçlü ve gizli bir değerle, `ALLOWED_ORIGINS`'i web
+   istemcisinin `https://` adresiyle ayarlayın.
+3. Uygulamayı `--dart-define=API_BASE_URL=https://api.ornek.com` ile derleyin.
+   Android release derlemesi düz `http` trafiğine zaten izin vermez.
+
+### Henüz eksik olanlar
+
+- **Google / Apple ile giriş:** Butonlar hazır, ancak sağlayıcı yapılandırılmadığı
+  için kullanıcıya "henüz yapılandırılmadı" mesajı gösterir. Etkinleştirmek için
+  `google_sign_in` ve `sign_in_with_apple` paketlerini ekleyin; Google Cloud
+  Console'da OAuth istemci kimliklerini (Android SHA-1, iOS URL şeması, web
+  istemci kimliği), Apple Developer'da "Sign in with Apple" yetkisini ve Services
+  ID'yi oluşturun; backend'e ID token'ı doğrulayan `/auth/google` ve
+  `/auth/apple` uçlarını ekleyin; ardından
+  `AuthService.signInWithProvider` metodunu güncelleyin.
+- **Şifre sıfırlama:** Backend ucu ve e-posta gönderimi yok; "Şifremi unuttum"
+  bu durumu açıklayan bir diyalog gösterir.
+- **Kullanım Koşulları / Gizlilik Politikası** metinleri henüz eklenmedi.

@@ -6,8 +6,12 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
+    # Holds the normalized (lowercase) e-mail address used to sign in.
     username = Column(String, unique=True)
-    password = Column(String)
+    full_name = Column(String)
+    # PBKDF2 hash produced by auth.hash_password; plaintext is never stored.
+    password_hash = Column(String)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 
 class Video(Base):

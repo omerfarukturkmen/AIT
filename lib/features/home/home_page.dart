@@ -139,7 +139,6 @@ class _HomePageState extends State<HomePage> {
       final result = await ApiService.uploadVideoBytes(
         videoBytes: videoBytes,
         fileName: videoName,
-        userId: 1,
         exerciseName: selectedExercise,
       );
 

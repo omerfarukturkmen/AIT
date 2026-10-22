@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/state/auth_store.dart';
 import '../../core/state/onboarding_store.dart';
 import '../../widgets/glass_card.dart';
 import '../../widgets/premium_background.dart';
 import '../../widgets/premium_button.dart';
+import '../auth/auth_page.dart';
 import '../navigation/main_navigation_page.dart';
 
 class OnboardingPage extends StatefulWidget {
@@ -51,7 +53,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (_) => const MainNavigationPage()),
+      MaterialPageRoute(
+        builder: (_) => AuthStore.isSignedIn
+            ? const MainNavigationPage()
+            : const AuthPage(),
+      ),
     );
   }
 
