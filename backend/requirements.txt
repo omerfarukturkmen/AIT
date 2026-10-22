@@ -1,7 +1,12 @@
-fastapi
-uvicorn
-python-multipart
-sqlalchemy
-opencv-python>=4.8.0,<5
-numpy>=1.24.0,<2
-mediapipe>=0.10.0,<0.10.30
+# Pinned to versions checked with `pip-audit` (no known vulnerabilities).
+# Re-run `pip-audit -r requirements.txt` before upgrading.
+fastapi==0.159.1
+uvicorn==0.54.0
+python-multipart==0.0.32
+sqlalchemy==2.1.6
+opencv-python==4.11.0.86
+numpy==1.26.4
+# Same version as ai/requirements.txt (the backend runs the AI module).
+mediapipe==0.10.35
+# Pulled in by mediapipe; versions below 5.29.6 have PYSEC-2026-1805.
+protobuf==7.36.2

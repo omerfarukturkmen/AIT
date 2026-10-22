@@ -1,3 +1,5 @@
 opencv-python>=4.8.0,<5
 mediapipe==0.10.35
 numpy>=1.24.0,<2
+# mediapipe allows older protobuf releases affected by PYSEC-2026-1805.
+protobuf>=5.29.6
