@@ -380,7 +380,9 @@ class _LiveAnalysisPageState extends State<LiveAnalysisPage> {
         isAnalyzing = false;
         isUploadingToBackend = false;
         hasCompletedAnalysis = false;
-        analysisErrorMessage = e.toString();
+        analysisErrorMessage = e is ApiException
+            ? e.message
+            : 'Video analiz edilemedi. Lütfen tekrar dene.';
         feedbackType = LiveFeedbackType.error;
 
         liveStatus = settings.languageCode == 'tr-TR'
@@ -392,9 +394,15 @@ class _LiveAnalysisPageState extends State<LiveAnalysisPage> {
             : 'Analysis failed. Please try again.';
       });
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Backend analiz hatası: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            e is ApiException
+                ? e.message
+                : 'Video analiz edilemedi. Lütfen tekrar dene.',
+          ),
+        ),
+      );
     }
   }
 

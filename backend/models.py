@@ -14,6 +14,19 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+
+class AuthSession(Base):
+    """One signed-in device; deleting the row revokes its token."""
+
+    __tablename__ = "auth_sessions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    jti = Column(String, unique=True, index=True, nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), index=True, nullable=False)
+    created_at = Column(DateTime, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+
+
 class Video(Base):
     __tablename__ = "videos"
 

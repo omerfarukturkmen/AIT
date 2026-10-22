@@ -6,6 +6,8 @@ class AuthValidators {
 
   static const int minPasswordLength = 8;
   static const int maxPasswordLength = 128;
+  static const int maxNameLength = 100;
+  static const int maxEmailLength = 254;
 
   static String? fullName(String? value) {
     final parts = (value ?? '').trim().split(RegExp(r'\s+'));

@@ -59,6 +59,7 @@ class _LoginFormState extends State<LoginForm> {
       final session = await AuthService.login(
         email: _emailController.text,
         password: _passwordController.text,
+        rememberMe: _rememberMe,
       );
       await AuthStore.save(session, remember: _rememberMe);
       if (!mounted) return;
@@ -110,6 +111,7 @@ class _LoginFormState extends State<LoginForm> {
           children: [
             AuthTextField(
               key: const Key('login_email'),
+              maxLength: AuthValidators.maxEmailLength,
               controller: _emailController,
               label: 'E-posta adresi',
               hint: 'ad@ornek.com',
@@ -123,6 +125,7 @@ class _LoginFormState extends State<LoginForm> {
             const SizedBox(height: 16),
             AuthTextField(
               key: const Key('login_password'),
+              maxLength: AuthValidators.maxPasswordLength,
               controller: _passwordController,
               focusNode: _passwordFocus,
               label: 'Şifre',

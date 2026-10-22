@@ -78,10 +78,15 @@ class AuthStore {
   }
 
   static Future<void> signOut() async {
+    final token = session.value?.accessToken;
     session.value = null;
     // Results are per user; don't show them to the next account.
     AnalysisHistoryStore.clearHistory();
     await _clearStorage();
+    if (token != null) {
+      // Revoke server-side too, so a copied token stops working.
+      await AuthService.logout(token);
+    }
   }
 
   static Future<void> _clearStorage() async {

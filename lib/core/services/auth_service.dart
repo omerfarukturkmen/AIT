@@ -29,15 +29,33 @@ extension SocialAuthProviderLabel on SocialAuthProvider {
 class AuthService {
   static const Duration _timeout = Duration(seconds: 15);
 
+  /// [rememberMe] false asks the backend for a short (12 hour) session.
   static Future<AuthSession> login({
     required String email,
     required String password,
+    bool rememberMe = true,
   }) async {
     final data = await _post('/auth/login', {
       'email': email.trim(),
       'password': password,
+      'remember_me': rememberMe,
     });
     return AuthSession.fromJson(data);
+  }
+
+  /// Revokes the token on the server. Best effort: signing out locally must
+  /// work offline too, so failures are ignored.
+  static Future<void> logout(String accessToken) async {
+    try {
+      await http
+          .post(
+            Uri.parse('${ApiConfig.baseUrl}/auth/logout'),
+            headers: {'Authorization': 'Bearer $accessToken'},
+          )
+          .timeout(const Duration(seconds: 5));
+    } on Exception {
+      // Token expires on its own; nothing else to do.
+    }
   }
 
   static Future<AuthSession> register({

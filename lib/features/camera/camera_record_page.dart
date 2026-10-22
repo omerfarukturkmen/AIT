@@ -134,9 +134,15 @@ class _CameraRecordPageState extends State<CameraRecordPage> {
         isAnalyzing = false;
       });
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Backend analiz hatası: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            e is ApiException
+                ? e.message
+                : 'Video analiz edilemedi. Lütfen tekrar dene.',
+          ),
+        ),
+      );
     }
   }
 

@@ -51,7 +51,11 @@ PROTECTED = [
     ("post", "/live-analysis", {"exercise_type": "squat", "frame_data": "x" * 30}),
     ("delete", "/videos/1", None),
     ("delete", "/auth/me", None),
+    ("post", "/auth/logout", None),
 ]
+
+# Smallest header that passes the MP4 signature check (ISO-BMFF "ftyp" box).
+MP4_BYTES = b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 16
 
 
 def _fake_analysis(file_path, exercise_type):
@@ -89,7 +93,7 @@ def _signup(client, email):
     return data["user"]["id"], {"Authorization": f"Bearer {data['access_token']}"}
 
 
-def _upload(client, headers, filename="video.mp4", content=b"fake-video", **fields):
+def _upload(client, headers, filename="video.mp4", content=MP4_BYTES, **fields):
     return client.post(
         "/upload-video",
         headers=headers,
@@ -102,7 +106,7 @@ def _upload(client, headers, filename="video.mp4", content=b"fake-video", **fiel
 def test_endpoints_reject_missing_or_forged_token(client, method, path, data):
     kwargs = {"data": data} if data else {}
     if path == "/upload-video":
-        kwargs["files"] = {"file": ("v.mp4", b"x", "video/mp4")}
+        kwargs["files"] = {"file": ("v.mp4", MP4_BYTES, "video/mp4")}
 
     assert getattr(client, method)(path, **kwargs).status_code == 401
 
@@ -161,7 +165,7 @@ def test_upload_size_limit(client, monkeypatch):
     _, alice = _signup(client, "alice@example.com")
     monkeypatch.setattr(main, "MAX_UPLOAD_BYTES", 10)
 
-    response = _upload(client, alice, content=b"x" * 11)
+    response = _upload(client, alice, content=MP4_BYTES)
 
     assert response.status_code == 413
     db = SessionLocal()

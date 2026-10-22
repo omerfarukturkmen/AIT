@@ -129,6 +129,7 @@ class _RegisterFormState extends State<RegisterForm> {
           children: [
             AuthTextField(
               key: const Key('register_name'),
+              maxLength: AuthValidators.maxNameLength,
               controller: _nameController,
               label: 'Ad soyad',
               hint: 'Ayşe Yılmaz',
@@ -143,6 +144,7 @@ class _RegisterFormState extends State<RegisterForm> {
             const SizedBox(height: 16),
             AuthTextField(
               key: const Key('register_email'),
+              maxLength: AuthValidators.maxEmailLength,
               controller: _emailController,
               focusNode: _emailFocus,
               label: 'E-posta adresi',
@@ -157,6 +159,7 @@ class _RegisterFormState extends State<RegisterForm> {
             const SizedBox(height: 16),
             AuthTextField(
               key: const Key('register_password'),
+              maxLength: AuthValidators.maxPasswordLength,
               controller: _passwordController,
               focusNode: _passwordFocus,
               label: 'Şifre',
@@ -173,6 +176,7 @@ class _RegisterFormState extends State<RegisterForm> {
             const SizedBox(height: 16),
             AuthTextField(
               key: const Key('register_confirm'),
+              maxLength: AuthValidators.maxPasswordLength,
               controller: _confirmController,
               focusNode: _confirmFocus,
               label: 'Şifre tekrarı',

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'auth_palette.dart';
 
@@ -11,6 +12,9 @@ class AuthTextField extends StatefulWidget {
   final TextInputType keyboardType;
   final TextInputAction textInputAction;
   final Iterable<String>? autofillHints;
+
+  /// Hard input limit (no visible counter); mirrors the backend limits.
+  final int? maxLength;
   final FormFieldValidator<String>? validator;
   final ValueChanged<String>? onFieldSubmitted;
   final ValueChanged<String>? onChanged;
@@ -28,6 +32,7 @@ class AuthTextField extends StatefulWidget {
     this.keyboardType = TextInputType.text,
     this.textInputAction = TextInputAction.next,
     this.autofillHints,
+    this.maxLength,
     this.validator,
     this.onFieldSubmitted,
     this.onChanged,
@@ -67,6 +72,10 @@ class _AuthTextFieldState extends State<AuthTextField> {
       textInputAction: widget.textInputAction,
       textCapitalization: widget.textCapitalization,
       autofillHints: widget.autofillHints,
+      inputFormatters: [
+        if (widget.maxLength != null)
+          LengthLimitingTextInputFormatter(widget.maxLength),
+      ],
       validator: widget.validator,
       onFieldSubmitted: widget.onFieldSubmitted,
       onChanged: widget.onChanged,

@@ -39,15 +39,17 @@ void main() {
             fileName: 'v.mp4',
             exerciseName: 'squat',
           ),
-          throwsA(
-            predicate((e) => e.toString().contains('Oturumun sona erdi')),
-          ),
+          throwsA(predicate((e) => e.toString().contains('Oturum geçersiz'))),
         );
       },
       () => MockClient((request) async {
         sent = request;
         body = request.body;
-        return http.Response('{"detail":"Oturum geçersiz."}', 401);
+        return http.Response(
+          '{"detail":"Oturum geçersiz."}',
+          401,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        );
       }),
     );
 

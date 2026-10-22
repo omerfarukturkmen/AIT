@@ -160,8 +160,9 @@ class _HomePageState extends State<HomePage> {
 
       setState(() {
         videoAnalysisStatus = VideoAnalysisStatus.failed;
-        videoAnalysisErrorMessage =
-            'Video analiz edilirken bir sorun oluştu. Backend açık mı ve video dosyası uygun formatta mı kontrol et.';
+        videoAnalysisErrorMessage = e is ApiException
+            ? e.message
+            : 'Video analiz edilirken bir sorun oluştu. Backend açık mı ve video dosyası uygun formatta mı kontrol et.';
       });
 
       ScaffoldMessenger.of(
