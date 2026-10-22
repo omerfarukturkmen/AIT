@@ -22,10 +22,10 @@ _AI_SRC = _REPO_ROOT / "ai" / "src"
 if str(_AI_SRC) not in sys.path:
     sys.path.insert(0, str(_AI_SRC))
 
+from exercise_registry import display_exercise_name  # noqa: E402
 from video_processor import (  # noqa: E402
     UnsupportedExerciseError,
     VideoValidationError,
-    display_exercise_name,
     normalize_exercise_type,
     run_video_analysis,
 )
