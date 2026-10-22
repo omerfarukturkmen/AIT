@@ -57,3 +57,19 @@ def test_normalize_exercise_type_aliases():
     assert normalize_exercise_type("PUSH_UP") == "pushup"
     with pytest.raises(UnsupportedExerciseError):
         normalize_exercise_type("burpee")
+
+
+def test_real_video_reports_reps_without_server_paths():
+    video = BACKEND_DIR / "uploaded_videos" / "IMG_5512.mp4"
+    model = REPO_ROOT / "ai" / "models" / "pose_landmarker_full.task"
+    if not video.exists() or not model.exists():
+        pytest.skip("IMG_5512.mp4 or pose model not present")
+
+    result = analyze_video(str(video), "squat")
+
+    # Same expectation as ai/tests/test_squat_false_positives.py.
+    assert result["repetition_count"] == 2
+    assert result["valid_reps"] == 2
+    assert result["details"]["average_min_knee_angle"] is not None
+    assert str(BACKEND_DIR) not in repr(result)
+    assert "video_path" not in result["details"]

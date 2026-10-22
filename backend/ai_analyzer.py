@@ -144,7 +144,7 @@ def analyze_video(video_path: str, exercise_type: str) -> dict[str, Any]:
     path = Path(video_path)
 
     logger.info("=== AI analysis start ===")
-    logger.info("video_path=%s", path)
+    logger.info("video_file=%s", path.name)
     logger.info("exercise_type=%s", exercise_type)
 
     try:
@@ -177,7 +177,10 @@ def analyze_video(video_path: str, exercise_type: str) -> dict[str, Any]:
             write_json=False,
         )
 
-        ai_result = analysis["ai_result"]
+        # The flat per-rep fields (rep_count, valid_reps, rep_history, knee
+        # angles...) live in domain_result; ai_result is the versioned
+        # summary schema. Reading ai_result here reported 0 reps.
+        ai_result = analysis.get("domain_result") or analysis["ai_result"]
         metrics = analysis["metrics"]
         score = _compute_score(ai_result, metrics)
         risk_percent = max(0, min(100, 100 - score))
@@ -240,7 +243,6 @@ def analyze_video(video_path: str, exercise_type: str) -> dict[str, Any]:
             "knee_range_of_motion": ai_result.get("knee_range_of_motion"),
             "selected_side": selected_side,
             "risk_percent": risk_percent,
-            "video_path": str(path),
             "analysis_elapsed_seconds": elapsed,
         }
 

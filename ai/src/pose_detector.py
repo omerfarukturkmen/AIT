@@ -110,7 +110,9 @@ class PoseDetector:
         self.model_path = resolved
         options = mp_pose_landmarker.PoseLandmarkerOptions(
             base_options=mp_base_options.BaseOptions(
-                model_asset_path=str(resolved),
+                # Pass bytes, not a path: MediaPipe's native loader cannot open
+                # non-ASCII Windows paths (e.g. ...\Masaüstü\...).
+                model_asset_buffer=resolved.read_bytes(),
                 delegate=mp_base_options.BaseOptions.Delegate.CPU,
             ),
             running_mode=mp_vision.RunningMode.VIDEO,
