@@ -26,6 +26,7 @@ Giriş/kayıt ekranları `lib/features/auth/` altında, backend uçları
 # Backend
 cd backend
 pip install -r requirements.txt
+python ../ai/scripts/download_pose_model.py   # video analizi için model (bir kez)
 export AUTH_SECRET_KEY="$(python -c 'import secrets; print(secrets.token_urlsafe(48))')"
 uvicorn main:app --reload
 
@@ -40,6 +41,8 @@ flutter run
 | `MAX_UPLOAD_MB` | Video yükleme sınırı (varsayılan 200). |
 | `DATABASE_URL` | Veritabanı adresi (varsayılan `sqlite:///./test.db`). |
 | `UPLOAD_FOLDER` | Videoların kaydedildiği klasör (varsayılan `uploaded_videos`). |
+| `APP_ENV` | `production` olduğunda `/docs` ve `/openapi.json` kapanır, HSTS başlığı eklenir. |
+| `ALLOWED_HOSTS` | API'nin yanıt vereceği alan adları (virgülle); başka `Host` başlıkları 400 alır. |
 
 Flutter tarafında backend adresi: `--dart-define=API_BASE_URL=http://10.0.2.2:8000`
 (Android emülatörü) gibi verilir.
@@ -53,8 +56,23 @@ Flutter tarafında backend adresi: `--dart-define=API_BASE_URL=http://10.0.2.2:8
   görebilir (başkasınınki için 403/404).
 - Videolar diskte rastgele (UUID) adla saklanır; istemcinin dosya adı
   kullanılmaz. Boyut sınırı `MAX_UPLOAD_MB` ile belirlenir.
-- Aynı IP + e-posta için 15 dakikada 5 hatalı girişten sonra 429 döner
-  (bellek içi; birden fazla sunucu sürecinde Redis gibi ortak bir depo gerekir).
+- Videonun içeriği doğrulanır (MP4/MOV/AVI imzası); uzantısı değiştirilmiş
+  başka dosyalar 415 ile reddedilir, boş dosya ve çok uzun dosya adı kabul edilmez.
+- Hız sınırları (IP veya kullanıcı başına, bellek içi): kayıt 5/saat,
+  giriş 20/dk (+ aynı e-posta için 15 dakikada 5 hatalı deneme), video yükleme
+  10/10 dk, canlı analiz 120/dk, tüm istekler 300/dk. Aşılınca `429` ve
+  `Retry-After` döner. Birden fazla sunucu sürecinde Redis gibi ortak bir depo
+  gerekir; ters vekil arkasında `uvicorn --proxy-headers` kullanılmalıdır.
+- Oturumlar sunucuda tutulur: çıkış (`POST /auth/logout`) token'ı hemen
+  geçersiz kılar, `?all_devices=true` tüm cihazlardan çıkarır. "Beni hatırla"
+  seçiliyse oturum 30 gün, değilse 12 saat geçerlidir.
+- Hata yanıtları sunucu yolu, istisna metni veya gönderilen veriyi (şifre
+  dahil) içermez; uygulama da ham sunucu yanıtını kullanıcıya göstermez.
+- Her yanıtta güvenlik başlıkları (`X-Content-Type-Options`, `X-Frame-Options`,
+  `Content-Security-Policy`, `Referrer-Policy`, `Cache-Control: no-store`) bulunur.
+- Loglara şifre, token veya e-posta yazılmaz; yanlışlıkla gelirse maskelenir.
+- Bağımlılıklar sabit sürümlüdür ve `pip-audit` / OSV ile taranmıştır
+  (ayrıntılar: `docs/GUVENLIK_KONTROLLERI.md`).
 - Oturum token'ı cihazda şifreli saklanır (`flutter_secure_storage`:
   iOS Keychain, Android Keystore, web'de WebCrypto).
 - KVKK: Kullanıcı kendi videosunu (`DELETE /videos/{id}`) veya hesabını tüm
@@ -63,7 +81,7 @@ Flutter tarafında backend adresi: `--dart-define=API_BASE_URL=http://10.0.2.2:8
 - `backend/test.db` ve `backend/uploaded_videos/` git'e eklenmemelidir.
 
 Uçlar: `POST /auth/register`, `POST /auth/login`, `GET /auth/me`,
-`DELETE /auth/me` (`Authorization: Bearer <token>`). Şifreler PBKDF2-SHA256
+`POST /auth/logout`, `DELETE /auth/me` (`Authorization: Bearer <token>`). Şifreler PBKDF2-SHA256
 ile hash'lenir.
 
 ### Canlıya çıkış (HTTPS)
@@ -74,8 +92,9 @@ olmalıdır; `http://` yalnızca yerel geliştirme içindir.
 1. Backend'i bir TLS sonlandırıcının (Nginx, Caddy veya bulut sağlayıcının
    yük dengeleyicisi) arkasında çalıştırın; `uvicorn` yalnızca `127.0.0.1`
    adresini dinlesin.
-2. `AUTH_SECRET_KEY`'i güçlü ve gizli bir değerle, `ALLOWED_ORIGINS`'i web
-   istemcisinin `https://` adresiyle ayarlayın.
+2. `APP_ENV=production`, `AUTH_SECRET_KEY`'i güçlü ve gizli bir değerle,
+   `ALLOWED_HOSTS`'u API alan adıyla, `ALLOWED_ORIGINS`'i web istemcisinin
+   `https://` adresiyle ayarlayın.
 3. Uygulamayı `--dart-define=API_BASE_URL=https://api.ornek.com` ile derleyin.
    Android release derlemesi düz `http` trafiğine zaten izin vermez.
 
