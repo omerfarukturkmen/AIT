@@ -12,15 +12,19 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.middleware.trustedhost import TrustedHostMiddleware
-from database import engine, Base, SessionLocal
-from ai_analyzer import AnalysisError, analyze_video
-from auth import get_current_user, migrate_users_table, router as auth_router
+from contextlib import asynccontextmanager
+from database import SessionLocal
+from account_recovery import router as account_router
+from auth import get_current_user, router as auth_router
 from rate_limit import RateLimitExceeded, RateLimiter, client_ip
+from social_auth import router as social_router
+import analysis_jobs
+import json
+import migrate
 import models
 import logging
 import os
 import re
-import time
 import traceback
 import uuid
 
@@ -62,16 +66,28 @@ for _logger_name in ("", "uvicorn", "uvicorn.access", "uvicorn.error"):
 # APP_ENV=production hides the interactive API docs and enables HSTS.
 IS_PRODUCTION = os.environ.get("APP_ENV", "development").lower() == "production"
 
+# Schema changes are versioned with Alembic (backend/migrations).
+migrate.upgrade_database()
+
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    analysis_jobs.fail_interrupted_analyses()
+    stop_retention = analysis_jobs.start_retention_worker()
+    yield
+    stop_retention.set()
+
+
 app = FastAPI(
+    lifespan=_lifespan,
     docs_url=None if IS_PRODUCTION else "/docs",
     redoc_url=None if IS_PRODUCTION else "/redoc",
     openapi_url=None if IS_PRODUCTION else "/openapi.json",
 )
 
 app.include_router(auth_router)
-
-Base.metadata.create_all(bind=engine)
-migrate_users_table(engine)
+app.include_router(account_router)
+app.include_router(social_router)
 
 GENERIC_ERROR = "Beklenmeyen bir hata oluştu. Lütfen tekrar dene."
 
@@ -166,14 +182,12 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type"],
 )
 
-UPLOAD_FOLDER = os.environ.get("UPLOAD_FOLDER", "uploaded_videos")
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+UPLOAD_FOLDER = analysis_jobs.UPLOAD_FOLDER
 MAX_UPLOAD_BYTES = int(os.environ.get("MAX_UPLOAD_MB", "200")) * 1024 * 1024
 MAX_FILENAME_LENGTH = 255
-MAX_FRAME_DATA_LENGTH = 1_000_000
+MAX_ACTIVE_ANALYSES_PER_USER = 3
 
 _upload_limiter = RateLimiter("upload", max_requests=10, window_seconds=600)
-_live_limiter = RateLimiter("live-analysis", max_requests=120, window_seconds=60)
 
 # Container signatures: MP4/MOV are ISO-BMFF boxes, AVI is a RIFF file.
 _ISO_BMFF_BOXES = {b"ftyp", b"moov", b"mdat", b"wide", b"free", b"skip", b"pnot"}
@@ -183,17 +197,6 @@ def _looks_like_video(header: bytes, extension: str) -> bool:
     if extension == ".avi":
         return header[:4] == b"RIFF" and header[8:12] == b"AVI "
     return len(header) >= 8 and header[4:8] in _ISO_BMFF_BOXES
-
-
-# Analyzer errors contain server paths and internals; clients get these.
-_SAFE_ANALYSIS_ERRORS = {
-    400: "Bu hareket türü desteklenmiyor.",
-    422: "Video okunamadı veya analiz için uygun değil. "
-    "Lütfen net ve kısa bir video yükleyin.",
-}
-_ANALYSIS_FAILED = "Analiz sırasında beklenmeyen bir hata oluştu. Lütfen tekrar deneyin."
-
-SUPPORTED_EXERCISES = {"squat", "push-up", "pushup", "push_up"}
 
 
 def _normalize_incoming_exercise(exercise_type: str) -> str:
@@ -213,230 +216,202 @@ def home():
     return {"message": "Backend çalışıyor"}
 
 
-@app.post("/upload-video")
+@app.post("/upload-video", status_code=202)
 async def upload_video(
     file: UploadFile = File(...),
     exercise_type: str = Form(..., max_length=32),
     current_user: models.User = Depends(get_current_user),
 ):
-    start_time = time.time()
+    """Stores the video and queues the analysis; poll GET /analysis/{id}."""
     # The owner always comes from the session token; a client-sent user_id
     # field is ignored so nobody can upload on behalf of another user.
     user_id = current_user.id
     _upload_limiter.check(str(user_id))
-    db = SessionLocal()
 
     if not file.filename:
-        db.close()
         raise HTTPException(
             status_code=400,
-            detail="Video dosyası seçilmedi. Lütfen bir video yükleyin."
+            detail="Video dosyası seçilmedi. Lütfen bir video yükleyin.",
         )
-
     if len(file.filename) > MAX_FILENAME_LENGTH:
-        db.close()
         raise HTTPException(status_code=400, detail="Dosya adı çok uzun.")
 
-    try:
-        exercise_type = _normalize_incoming_exercise(exercise_type)
-    except HTTPException:
-        db.close()
-        raise
+    exercise_type = _normalize_incoming_exercise(exercise_type)
 
-    allowed_extensions = [".mp4", ".mov", ".avi"]
     file_extension = os.path.splitext(file.filename)[1].lower()
-
-    if file_extension not in allowed_extensions:
-        db.close()
+    if file_extension not in (".mp4", ".mov", ".avi"):
         raise HTTPException(
             status_code=400,
-            detail="Geçersiz video formatı. Desteklenen formatlar: mp4, mov, avi"
+            detail="Geçersiz video formatı. Desteklenen formatlar: mp4, mov, avi",
         )
 
-    # Never use the client filename on disk (path traversal / overwrites).
-    stored_filename = f"{uuid.uuid4().hex}{file_extension}"
-    file_path = os.path.join(UPLOAD_FOLDER, stored_filename)
-
-    written = 0
-    header = b""
-    with open(file_path, "wb") as buffer:
-        while chunk := file.file.read(1024 * 1024):
-            if not header:
-                header = chunk[:16]
-            written += len(chunk)
-            if written > MAX_UPLOAD_BYTES:
-                break
-            buffer.write(chunk)
-
-    rejection = None
-    if written > MAX_UPLOAD_BYTES:
-        rejection = HTTPException(
-            status_code=413,
-            detail=f"Video en fazla {MAX_UPLOAD_BYTES // (1024 * 1024)} MB olabilir.",
-        )
-    elif written == 0:
-        rejection = HTTPException(status_code=400, detail="Video dosyası boş.")
-    elif not _looks_like_video(header, file_extension):
-        # The extension alone proves nothing (e.g. a renamed .exe).
-        rejection = HTTPException(
-            status_code=415,
-            detail="Dosya geçerli bir video değil. Desteklenen formatlar: mp4, mov, avi",
-        )
-    if rejection is not None:
-        os.remove(file_path)
-        db.close()
-        raise rejection
-
-    file_size = os.path.getsize(file_path) if os.path.exists(file_path) else 0
-    logger.info(
-        "upload saved path=%s size=%s exercise_type=%s user_id=%s",
-        file_path,
-        file_size,
-        exercise_type,
-        user_id,
-    )
-
-    video = models.Video(
-        filename=stored_filename,
-        owner_id=user_id
-    )
-
-    db.add(video)
-    db.commit()
-    db.refresh(video)
-
-    analysis = models.AnalysisResult(
-        video_id=video.id,
-        exercise_type=exercise_type,
-        score=0,
-        repetition_count=0,
-        feedback="Analiz bekleniyor",
-        status="pending"
-    )
-
-    db.add(analysis)
-    db.commit()
-    db.refresh(analysis)
-
+    db = SessionLocal()
     try:
-        analysis_result = analyze_video(file_path, exercise_type)
-
-        if analysis_result.get("status") != "success":
-            analysis.status = "failed"
-            analysis.feedback = "Analiz başarısız oldu"
-            db.commit()
-            db.close()
-
+        active = (
+            db.query(models.AnalysisResult)
+            .join(models.Video, models.AnalysisResult.video_id == models.Video.id)
+            .filter(models.Video.owner_id == user_id)
+            .filter(models.AnalysisResult.status.in_(analysis_jobs.PENDING_STATES))
+            .count()
+        )
+        if active >= MAX_ACTIVE_ANALYSES_PER_USER:
             raise HTTPException(
-                status_code=500,
-                detail="Video analiz edilemedi. Lütfen daha net bir video yükleyin."
+                status_code=429,
+                detail="Aynı anda en fazla 3 analiz yapılabilir. "
+                "Lütfen devam edenlerin bitmesini bekle.",
             )
 
-        analysis.score = analysis_result["score"]
-        analysis.repetition_count = analysis_result["repetition_count"]
-        analysis.feedback = analysis_result["feedback"]
-        analysis.status = "completed"
+        # Never use the client filename on disk (path traversal / overwrites).
+        stored_filename = f"{uuid.uuid4().hex}{file_extension}"
+        file_path = os.path.join(UPLOAD_FOLDER, stored_filename)
 
+        written = 0
+        header = b""
+        with open(file_path, "wb") as buffer:
+            while chunk := file.file.read(1024 * 1024):
+                if not header:
+                    header = chunk[:16]
+                written += len(chunk)
+                if written > MAX_UPLOAD_BYTES:
+                    break
+                buffer.write(chunk)
+
+        rejection = None
+        if written > MAX_UPLOAD_BYTES:
+            rejection = HTTPException(
+                status_code=413,
+                detail=f"Video en fazla {MAX_UPLOAD_BYTES // (1024 * 1024)} MB olabilir.",
+            )
+        elif written == 0:
+            rejection = HTTPException(status_code=400, detail="Video dosyası boş.")
+        elif not _looks_like_video(header, file_extension):
+            # The extension alone proves nothing (e.g. a renamed .exe).
+            rejection = HTTPException(
+                status_code=415,
+                detail="Dosya geçerli bir video değil. Desteklenen formatlar: mp4, mov, avi",
+            )
+        if rejection is not None:
+            os.remove(file_path)
+            raise rejection
+
+        logger.info(
+            "upload saved file=%s size=%s exercise_type=%s user_id=%s",
+            stored_filename,
+            written,
+            exercise_type,
+            user_id,
+        )
+
+        video = models.Video(
+            filename=stored_filename,
+            owner_id=user_id,
+            created_at=models.utcnow(),
+        )
+        db.add(video)
+        db.flush()
+        analysis = models.AnalysisResult(
+            video_id=video.id,
+            exercise_type=exercise_type,
+            score=0,
+            repetition_count=0,
+            feedback="Analiz bekleniyor",
+            status="pending",
+            created_at=models.utcnow(),
+        )
+        db.add(analysis)
         db.commit()
-        db.refresh(analysis)
-
-        response_time = round(time.time() - start_time, 3)
-
-        video_id = video.id
-        analysis_id = analysis.id
-        analysis_status = analysis.status
-        details = analysis_result.get("details") or {}
-
-        db.close()
-
-        # Keep existing nested `data` schema and also expose Flutter legacy
-        # fields so ApiService.AnalysisResult.fromJson can read real values.
-        payload = {
-            "status": "success",
-            "message": "Video başarıyla analiz edildi",
-            "accuracy": analysis_result["score"],
-            "exercise": analysis_result["exercise_name"],
-            "feedback": analysis_result["feedback"],
-            "average_motion": details.get(
-                "average_motion",
-                details.get("average_movement", 0),
-            ),
-            "total_frames": details.get("total_frames", 0),
-            "score": analysis_result["score"],
-            "risk_percent": analysis_result.get("risk_percent", 0),
-            "repetition_count": analysis_result["repetition_count"],
+        response = {
+            "status": "pending",
+            "message": "Video alındı, analiz ediliyor.",
             "data": {
+                "analysis_id": analysis.id,
+                "video_id": video.id,
                 "filename": stored_filename,
-                "video_id": video_id,
-                "analysis_id": analysis_id,
                 "user_id": user_id,
                 "exercise_type": exercise_type,
-                "exercise_name": analysis_result["exercise_name"],
-                "exercise": analysis_result["exercise_name"],
-                "score": analysis_result["score"],
-                "accuracy": analysis_result["score"],
-                "risk_percent": analysis_result.get("risk_percent", 0),
-                "repetition_count": analysis_result["repetition_count"],
-                "valid_reps": analysis_result.get("valid_reps", 0),
-                "invalid_reps": analysis_result.get("invalid_reps", 0),
-                "analysis_status": analysis_status,
-                "camera_warnings": analysis_result.get("camera_warnings", []),
-                "errors": analysis_result["errors"],
-                "feedback": analysis_result["feedback"],
-                "average_motion": details.get(
-                    "average_motion",
-                    details.get("average_movement", 0),
-                ),
-                "total_frames": details.get("total_frames", 0),
-                "processed_frames": details.get("processed_frames", 0),
-                "landmark_frames": details.get("landmark_frames", 0),
-                "landmark_detection_ratio": details.get(
-                    "landmark_detection_ratio", 0
-                ),
-                "mean_landmark_visibility": details.get(
-                    "mean_landmark_visibility", 0
-                ),
-                "ai_confidence": details.get("ai_confidence", 0),
-                "confidence_percent": details.get("confidence_percent", 0),
-                "duration_seconds": details.get("duration_seconds", 0),
-                "min_knee_angle": details.get("min_knee_angle"),
-                "average_min_knee_angle": details.get("average_min_knee_angle"),
-                "knee_range_of_motion": details.get("knee_range_of_motion"),
-                "selected_side": details.get("selected_side", "unavailable"),
-                "rep_history": details.get("rep_history", []),
-                "details": details,
-                "response_time_seconds": response_time,
+                "analysis_status": "pending",
             },
         }
-        return payload
-
-    except HTTPException:
-        raise
-
-    except AnalysisError as exc:
-        logger.error("AnalysisError: %s\n%s", exc.message, traceback.format_exc())
-        safe_message = _SAFE_ANALYSIS_ERRORS.get(exc.status_code, _ANALYSIS_FAILED)
-        analysis.status = "failed"
-        analysis.feedback = safe_message
-        db.commit()
+        analysis_id = analysis.id
+    finally:
         db.close()
 
-        raise HTTPException(
-            status_code=exc.status_code if exc.status_code in _SAFE_ANALYSIS_ERRORS else 500,
-            detail=safe_message,
-        )
+    analysis_jobs.submit(analysis_id)
+    return response
 
-    except Exception:
-        logger.error("Unexpected upload-video error\n%s", traceback.format_exc())
-        analysis.status = "failed"
-        analysis.feedback = "Analiz sırasında beklenmeyen bir hata oluştu"
-        db.commit()
+
+def _analysis_summary(analysis: models.AnalysisResult, video: models.Video) -> dict:
+    return {
+        "analysis_id": analysis.id,
+        "video_id": video.id,
+        "exercise_type": analysis.exercise_type,
+        "score": analysis.score,
+        "repetition_count": analysis.repetition_count,
+        "feedback": analysis.feedback,
+        "analysis_status": analysis.status,
+        "created_at": analysis.created_at,
+        "completed_at": analysis.completed_at,
+    }
+
+
+def _owned_analysis(db, analysis_id: int, user: models.User):
+    # Other users' analyses answer 404 too, so IDs cannot be probed.
+    row = (
+        db.query(models.AnalysisResult, models.Video)
+        .join(models.Video, models.AnalysisResult.video_id == models.Video.id)
+        .filter(models.AnalysisResult.id == analysis_id)
+        .filter(models.Video.owner_id == user.id)
+        .first()
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="Analiz bulunamadı.")
+    return row
+
+
+@app.get("/analysis/{analysis_id}")
+def get_analysis_detail(
+    analysis_id: int,
+    current_user: models.User = Depends(get_current_user),
+):
+    """Polled by the app: pending/processing, failed, or the full result."""
+    db = SessionLocal()
+    try:
+        analysis, video = _owned_analysis(db, analysis_id, current_user)
+        if analysis.status == "completed" and analysis.result_json:
+            return json.loads(analysis.result_json)
+        return {"status": analysis.status, "data": _analysis_summary(analysis, video)}
+    finally:
         db.close()
 
-        raise HTTPException(
-            status_code=500,
-            detail="Analiz sırasında beklenmeyen bir hata oluştu. Lütfen tekrar deneyin."
+
+@app.get("/analyses")
+def list_analyses(
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    current_user: models.User = Depends(get_current_user),
+):
+    """The signed-in user's analyses, newest first, with full results."""
+    db = SessionLocal()
+    try:
+        rows = (
+            db.query(models.AnalysisResult, models.Video)
+            .join(models.Video, models.AnalysisResult.video_id == models.Video.id)
+            .filter(models.Video.owner_id == current_user.id)
+            .order_by(models.AnalysisResult.id.desc())
+            .offset(offset)
+            .limit(limit)
+            .all()
         )
+        items = []
+        for analysis, video in rows:
+            item = _analysis_summary(analysis, video)
+            item["result"] = (
+                json.loads(analysis.result_json) if analysis.result_json else None
+            )
+            items.append(item)
+        return {"status": "success", "analyses": items}
+    finally:
+        db.close()
 
 
 def _require_same_user(user_id: int, current_user: models.User) -> None:
@@ -453,7 +428,7 @@ def _delete_videos(db, videos) -> None:
         db.query(models.AnalysisResult).filter(
             models.AnalysisResult.video_id == video.id
         ).delete()
-        file_path = os.path.join(UPLOAD_FOLDER, os.path.basename(video.filename or ""))
+        file_path = analysis_jobs.video_path(video)
         if video.filename and os.path.isfile(file_path):
             os.remove(file_path)
         db.delete(video)
@@ -494,9 +469,12 @@ def delete_account(current_user: models.User = Depends(get_current_user)):
             .all()
         )
         _delete_videos(db, videos)
-        db.query(models.AuthSession).filter(
-            models.AuthSession.user_id == current_user.id
-        ).delete()
+        for table in (
+            models.AuthSession,
+            models.OneTimeCode,
+            models.SocialIdentity,
+        ):
+            db.query(table).filter(table.user_id == current_user.id).delete()
         db.query(models.User).filter(models.User.id == current_user.id).delete()
         db.commit()
     finally:
@@ -513,22 +491,13 @@ def get_user_videos(
 ):
     _require_same_user(user_id, current_user)
     db = SessionLocal()
-
-    videos = db.query(models.Video).filter(
-        models.Video.owner_id == user_id
-    ).all()
-
-    result = []
-
-    for video in videos:
-        result.append({
-            "id": video.id,
-            "filename": video.filename
-        })
-
-    db.close()
-
-    return result
+    try:
+        videos = (
+            db.query(models.Video).filter(models.Video.owner_id == user_id).all()
+        )
+        return [{"id": video.id, "filename": video.filename} for video in videos]
+    finally:
+        db.close()
 
 
 @app.get("/user-analysis-history/{user_id}")
@@ -538,81 +507,20 @@ def get_analysis_history(
 ):
     _require_same_user(user_id, current_user)
     db = SessionLocal()
-
-    analyses = (
-        db.query(models.AnalysisResult, models.Video)
-        .join(models.Video, models.AnalysisResult.video_id == models.Video.id)
-        .filter(models.Video.owner_id == user_id)
-        .all()
-    )
-
-    result = []
-
-    for analysis, video in analyses:
-        result.append({
-            "analysis_id": analysis.id,
-            "video_id": video.id,
-            "filename": video.filename,
-            "exercise_type": analysis.exercise_type,
-            "score": analysis.score,
-            "repetition_count": analysis.repetition_count,
-            "feedback": analysis.feedback,
-            "status": analysis.status,
-            "created_at": analysis.created_at
-        })
-
-    db.close()
-
-    return {
-        "status": "success",
-        "user_id": user_id,
-        "analysis_history": result
-    }
-
-
-@app.get("/analysis/{analysis_id}")
-def get_analysis_detail(
-    analysis_id: int,
-    current_user: models.User = Depends(get_current_user),
-):
-    db = SessionLocal()
-
-    # Other users' analyses answer 404 too, so IDs cannot be probed.
-    result = (
-        db.query(models.AnalysisResult, models.Video)
-        .join(models.Video, models.AnalysisResult.video_id == models.Video.id)
-        .filter(models.AnalysisResult.id == analysis_id)
-        .filter(models.Video.owner_id == current_user.id)
-        .first()
-    )
-
-    if not result:
-        db.close()
-        raise HTTPException(
-            status_code=404,
-            detail="Analiz bulunamadı. Lütfen geçerli bir analysis_id gönderin."
+    try:
+        rows = (
+            db.query(models.AnalysisResult, models.Video)
+            .join(models.Video, models.AnalysisResult.video_id == models.Video.id)
+            .filter(models.Video.owner_id == user_id)
+            .all()
         )
-
-    analysis, video = result
-
-    response = {
-        "status": "success",
-        "data": {
-            "analysis_id": analysis.id,
-            "video_id": video.id,
-            "filename": video.filename,
-            "exercise_type": analysis.exercise_type,
-            "score": analysis.score,
-            "repetition_count": analysis.repetition_count,
-            "feedback": analysis.feedback,
-            "analysis_status": analysis.status,
-            "created_at": analysis.created_at
-        }
-    }
-
-    db.close()
-
-    return response
+        history = [
+            {**_analysis_summary(analysis, video), "status": analysis.status}
+            for analysis, video in rows
+        ]
+        return {"status": "success", "user_id": user_id, "analysis_history": history}
+    finally:
+        db.close()
 
 
 @app.get("/analysis-history")
@@ -621,91 +529,24 @@ def get_filtered_analysis_history(
     current_user: models.User = Depends(get_current_user),
 ):
     db = SessionLocal()
-
-    query = (
-        db.query(models.AnalysisResult, models.Video)
-        .join(models.Video, models.AnalysisResult.video_id == models.Video.id)
-        .filter(models.Video.owner_id == current_user.id)
-    )
-
-    if exercise_type:
-        try:
+    try:
+        query = (
+            db.query(models.AnalysisResult, models.Video)
+            .join(models.Video, models.AnalysisResult.video_id == models.Video.id)
+            .filter(models.Video.owner_id == current_user.id)
+        )
+        if exercise_type:
             exercise_type = _normalize_incoming_exercise(exercise_type)
-        except HTTPException:
-            db.close()
-            raise
+            query = query.filter(models.AnalysisResult.exercise_type == exercise_type)
 
-        query = query.filter(models.AnalysisResult.exercise_type == exercise_type)
-
-    analyses = query.all()
-
-    result = []
-
-    for analysis, video in analyses:
-        result.append({
-            "analysis_id": analysis.id,
-            "video_id": video.id,
-            "filename": video.filename,
-            "exercise_type": analysis.exercise_type,
-            "score": analysis.score,
-            "repetition_count": analysis.repetition_count,
-            "feedback": analysis.feedback,
-            "status": analysis.status,
-            "created_at": analysis.created_at
-        })
-
-    db.close()
-
-    return {
-        "status": "success",
-        "exercise_type_filter": exercise_type,
-        "analysis_history": result
-    }
-
-
-@app.post("/live-analysis")
-def live_analysis(
-    exercise_type: str = Form(..., max_length=32),
-    frame_data: str = Form(..., max_length=MAX_FRAME_DATA_LENGTH),
-    current_user: models.User = Depends(get_current_user),
-):
-    _live_limiter.check(str(current_user.id))
-    start_time = time.time()
-
-    exercise_type = _normalize_incoming_exercise(exercise_type)
-
-    if not frame_data:
-        raise HTTPException(
-            status_code=400,
-            detail="Canlı analiz için frame_data gönderilmelidir."
-        )
-
-    camera_warnings = []
-
-    if len(frame_data) < 20:
-        camera_warnings.append(
-            "Kamera görüntüsü yetersiz veya çok kısa veri gönderildi."
-        )
-
-    if exercise_type == "squat":
-        feedback = "Squat canlı analiz verisi alındı."
-    elif exercise_type == "push-up":
-        feedback = "Push-up canlı analiz verisi alındı."
-    else:
-        feedback = "Canlı analiz verisi alındı."
-
-    response_time = round(time.time() - start_time, 3)
-
-    return {
-        "status": "success",
-        "message": "Canlı analiz verisi alındı",
-        "data": {
-            "exercise_type": exercise_type,
-            "score": 70,
-            "repetition_count": 0,
-            "feedback": feedback,
-            "camera_warnings": camera_warnings,
-            "analysis_status": "completed",
-            "response_time_seconds": response_time
+        history = [
+            {**_analysis_summary(analysis, video), "status": analysis.status}
+            for analysis, video in query.all()
+        ]
+        return {
+            "status": "success",
+            "exercise_type_filter": exercise_type,
+            "analysis_history": history,
         }
-    }
+    finally:
+        db.close()

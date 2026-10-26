@@ -18,6 +18,7 @@ BACKEND_DIR = Path(__file__).resolve().parents[1]
 
 from tests.test_api_security import MP4_BYTES, _fake_analysis, _signup, _upload  # noqa: E402
 
+import ai_analyzer  # noqa: E402
 import auth  # noqa: E402
 import main  # noqa: E402
 import models  # noqa: E402
@@ -38,7 +39,7 @@ def client(monkeypatch):
         db.query(table).delete()
     db.commit()
     db.close()
-    monkeypatch.setattr(main, "analyze_video", _fake_analysis)
+    monkeypatch.setattr(ai_analyzer, "analyze_video", _fake_analysis)
     with TestClient(main.app, raise_server_exceptions=False) as test_client:
         yield test_client
 
@@ -87,8 +88,8 @@ def test_accepts_real_container_signatures(client):
     _, alice = _signup(client, "alice@example.com")
     avi = b"RIFF\x00\x00\x00\x00AVI LIST" + b"\x00" * 16
 
-    assert _upload(client, alice, filename="a.mp4").status_code == 200
-    assert _upload(client, alice, filename="b.avi", content=avi).status_code == 200
+    assert _upload(client, alice, filename="a.mp4").status_code == 202
+    assert _upload(client, alice, filename="b.avi", content=avi).status_code == 202
 
 
 def test_rejected_upload_leaves_no_file_behind(client):
@@ -137,27 +138,6 @@ def test_wrong_types_are_rejected(client):
     assert response.status_code == 422
 
 
-def test_live_analysis_limits_frame_size_and_exercise(client):
-    _, alice = _signup(client, "alice@example.com")
-
-    too_big = client.post(
-        "/live-analysis",
-        headers=alice,
-        data={"exercise_type": "squat", "frame_data": "x" * (main.MAX_FRAME_DATA_LENGTH + 1)},
-    )
-    unknown = client.post(
-        "/live-analysis",
-        headers=alice,
-        data={"exercise_type": "deadlift'; DROP TABLE users;--", "frame_data": "x" * 30},
-    )
-
-    assert too_big.status_code == 422
-    assert unknown.status_code in (400, 422)
-    db = SessionLocal()
-    assert db.query(models.User).count() == 1  # nothing was dropped
-    db.close()
-
-
 # --- P1: rate limiting ----------------------------------------------------
 
 
@@ -179,10 +159,10 @@ def test_uploads_are_rate_limited_per_user(client):
     _, bob = _signup(client, "bob@example.com")
 
     for _ in range(10):
-        assert _upload(client, alice).status_code == 200
+        assert _upload(client, alice).status_code == 202
 
     assert _upload(client, alice).status_code == 429
-    assert _upload(client, bob).status_code == 200  # other users unaffected
+    assert _upload(client, bob).status_code == 202  # other users unaffected
 
 
 def test_global_request_limit(client, monkeypatch):
@@ -266,12 +246,15 @@ def test_analysis_errors_hide_server_paths(client, monkeypatch):
     secret_path = r"C:\srv\ait\uploaded_videos\internal.mp4"
 
     def failing_analysis(file_path, exercise_type):
-        raise main.AnalysisError(f"Video dosyasi bos: {secret_path}", status_code=422)
+        raise ai_analyzer.AnalysisError(
+            f"Video dosyasi bos: {secret_path}", status_code=422
+        )
 
-    monkeypatch.setattr(main, "analyze_video", failing_analysis)
-    response = _upload(client, alice)
+    monkeypatch.setattr(ai_analyzer, "analyze_video", failing_analysis)
+    analysis_id = _upload(client, alice).json()["data"]["analysis_id"]
+    response = client.get(f"/analysis/{analysis_id}", headers=alice)
 
-    assert response.status_code == 422
+    assert response.json()["status"] == "failed"
     assert "srv" not in response.text and "uploaded_videos" not in response.text
     db = SessionLocal()
     assert "srv" not in db.query(models.AnalysisResult).one().feedback

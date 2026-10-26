@@ -36,6 +36,7 @@ except ImportError:
 sys.path.remove(str(BACKEND_DIR))
 sys.path.insert(0, str(BACKEND_DIR))
 
+import ai_analyzer  # noqa: E402
 import auth  # noqa: E402
 import main  # noqa: E402
 import models  # noqa: E402
@@ -48,7 +49,8 @@ PROTECTED = [
     ("get", "/analysis/1", None),
     ("get", "/analysis-history", None),
     ("post", "/upload-video", {"exercise_type": "squat"}),
-    ("post", "/live-analysis", {"exercise_type": "squat", "frame_data": "x" * 30}),
+    ("get", "/analyses", None),
+    ("post", "/auth/email-verification/request", None),
     ("delete", "/videos/1", None),
     ("delete", "/auth/me", None),
     ("post", "/auth/logout", None),
@@ -78,7 +80,7 @@ def client(monkeypatch):
     db.commit()
     db.close()
     auth._failed_logins.clear()
-    monkeypatch.setattr(main, "analyze_video", _fake_analysis)
+    monkeypatch.setattr(ai_analyzer, "analyze_video", _fake_analysis)
     with TestClient(main.app) as test_client:
         yield test_client
 
@@ -119,7 +121,7 @@ def test_users_cannot_read_each_others_data(client):
     bob_id, bob = _signup(client, "bob@example.com")
 
     upload = _upload(client, bob)
-    assert upload.status_code == 200
+    assert upload.status_code == 202
     bob_analysis_id = upload.json()["data"]["analysis_id"]
 
     assert client.get(f"/user-videos/{bob_id}", headers=alice).status_code == 403
@@ -142,7 +144,7 @@ def test_upload_owner_comes_from_token_not_form(client):
 
     response = _upload(client, alice, user_id=str(bob_id))
 
-    assert response.status_code == 200
+    assert response.status_code == 202
     assert response.json()["data"]["user_id"] == alice_id
     db = SessionLocal()
     assert db.query(models.Video).one().owner_id == alice_id
@@ -154,7 +156,7 @@ def test_upload_filename_cannot_escape_folder(client):
 
     response = _upload(client, alice, filename="../../evil.mp4")
 
-    assert response.status_code == 200
+    assert response.status_code == 202
     stored = response.json()["data"]["filename"]
     assert "evil" not in stored and "/" not in stored and "\\" not in stored
     assert os.path.isfile(os.path.join(main.UPLOAD_FOLDER, stored))

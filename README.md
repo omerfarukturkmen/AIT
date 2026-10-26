@@ -53,13 +53,35 @@ flutter run
 | `AUTH_SECRET_KEY` | Oturum token'larını imzalar. Tanımlı değilse her açılışta geçici bir anahtar üretilir ve sunucu yeniden başlayınca tüm oturumlar düşer. Üretimde zorunlu. |
 | `ALLOWED_ORIGINS` | Web istemcisi için izin verilen origin'ler (virgülle). Boşsa yalnızca `localhost` / `127.0.0.1` kabul edilir. |
 | `MAX_UPLOAD_MB` | Video yükleme sınırı (varsayılan 200). |
-| `DATABASE_URL` | Veritabanı adresi (varsayılan `sqlite:///./test.db`). |
+| `DATABASE_URL` | Veritabanı adresi (varsayılan `sqlite:///./test.db`; canlıda PostgreSQL: `postgresql+psycopg://...`). |
+| `VIDEO_RETENTION_DAYS` | Yüklenen videoların saklanma süresi, gün (varsayılan 30; `0` = süresiz). Analiz sonuçları silinmez. |
+| `ANALYSIS_WORKERS` | Aynı anda çalışan analiz sayısı (varsayılan 2). |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM`, `SMTP_STARTTLS` | Şifre sıfırlama ve e-posta doğrulama kodlarının gönderimi. Geliştirmede tanımlı değilse e-postalar `backend/dev_outbox/` klasörüne `.eml` olarak yazılır; canlıda zorunlu. |
+| `GOOGLE_CLIENT_IDS`, `APPLE_CLIENT_IDS` | Google/Apple ile giriş için istemci kimlikleri (virgülle). Tanımlı değilse bu girişler "yapılandırılmadı" yanıtı verir. Kurulum: `docs/SOSYAL_GIRIS_KURULUMU.md`. |
 | `UPLOAD_FOLDER` | Videoların kaydedildiği klasör (varsayılan `uploaded_videos`). |
 | `APP_ENV` | `production` olduğunda `/docs` ve `/openapi.json` kapanır, HSTS başlığı eklenir. |
 | `ALLOWED_HOSTS` | API'nin yanıt vereceği alan adları (virgülle); başka `Host` başlıkları 400 alır. |
 
 Flutter tarafında backend adresi: `--dart-define=API_BASE_URL=http://10.0.2.2:8000`
 (Android emülatörü) gibi verilir.
+
+### Veritabanı değişiklikleri
+
+Şema Alembic ile sürümlenir (`backend/migrations/`); sunucu açılırken
+bekleyen değişiklikleri kendisi uygular. Modelde (`models.py`) değişiklik
+yaptıktan sonra yeni bir migration oluşturun:
+
+```bash
+cd backend
+alembic revision --autogenerate -m "ne değişti"
+alembic upgrade head
+```
+
+### Video analizi
+
+Video yüklendiğinde sunucu hemen `202` ve `analysis_id` döner; analiz arka
+planda çalışır, uygulama sonucu `GET /analysis/{id}` ile sorgular. Kullanıcının
+geçmişi: `GET /analyses`. Aynı anda kullanıcı başına en fazla 3 analiz yapılır.
 
 ### Güvenlik
 

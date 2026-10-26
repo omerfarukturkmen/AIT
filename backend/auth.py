@@ -22,7 +22,6 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
 from pydantic import BaseModel, Field
-from sqlalchemy import inspect, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -82,26 +81,6 @@ def get_db():
         db.close()
 
 
-def migrate_users_table(engine) -> None:
-    """Adds auth columns to a users table created by the old schema."""
-    inspector = inspect(engine)
-    if "users" not in inspector.get_table_names():
-        return
-
-    existing = {column["name"] for column in inspector.get_columns("users")}
-    missing = {
-        "full_name": "VARCHAR",
-        "password_hash": "VARCHAR",
-        "created_at": "DATETIME",
-    }
-    with engine.begin() as connection:
-        for name, sql_type in missing.items():
-            if name not in existing:
-                connection.execute(
-                    text(f"ALTER TABLE users ADD COLUMN {name} {sql_type}")
-                )
-
-
 def hash_password(password: str) -> str:
     salt = secrets.token_bytes(16)
     digest = hashlib.pbkdf2_hmac(
@@ -136,8 +115,7 @@ _DUMMY_HASH = hash_password(secrets.token_urlsafe(16))
 
 
 def _utcnow() -> datetime:
-    # SQLite stores naive datetimes; keep everything in naive UTC.
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return models.utcnow()
 
 
 def _b64encode(raw: bytes) -> str:
@@ -200,7 +178,7 @@ def _purge_expired_sessions(db: Session) -> None:
     db.commit()
 
 
-def _normalize_email(email: str) -> str:
+def normalize_email(email: str) -> str:
     return email.strip().lower()
 
 
@@ -214,7 +192,7 @@ def _name_problem(full_name: str) -> str | None:
     return None
 
 
-def _password_problem(password: str) -> str | None:
+def password_problem(password: str) -> str | None:
     if len(password) < 8:
         return "Şifre en az 8 karakter olmalı."
     if len(password) > MAX_PASSWORD_LENGTH:
@@ -227,10 +205,15 @@ def _password_problem(password: str) -> str | None:
 
 
 def _user_payload(user: models.User) -> dict:
-    return {"id": user.id, "email": user.username, "full_name": user.full_name}
+    return {
+        "id": user.id,
+        "email": user.username,
+        "full_name": user.full_name,
+        "email_verified": bool(user.email_verified),
+    }
 
 
-def _session_response(
+def session_response(
     db: Session, user: models.User, ttl: timedelta = REMEMBERED_SESSION_TTL
 ) -> dict:
     return {
@@ -250,7 +233,7 @@ def register(
     _register_limiter.check(client_ip(http_request))
 
     full_name = " ".join(request.full_name.split())
-    email = _normalize_email(request.email)
+    email = normalize_email(request.email)
 
     problem = _name_problem(full_name)
     if problem:
@@ -259,7 +242,7 @@ def register(
         raise HTTPException(
             status_code=422, detail="Geçerli bir e-posta adresi girin."
         )
-    problem = _password_problem(request.password)
+    problem = password_problem(request.password)
     if problem:
         raise HTTPException(status_code=422, detail=problem)
 
@@ -286,7 +269,11 @@ def register(
     db.refresh(user)
 
     logger.info("Yeni kullanıcı kaydı: id=%s", user.id)
-    return _session_response(db, user)
+
+    from account_recovery import send_verification_after_signup
+
+    send_verification_after_signup(db, user)
+    return session_response(db, user)
 
 
 def _recent_failures(key: str) -> list[float]:
@@ -308,7 +295,7 @@ def login(
     ip = client_ip(http_request)
     _login_limiter.check(ip)
 
-    email = _normalize_email(request.email)
+    email = normalize_email(request.email)
     limiter_key = f"{ip}|{email}"
 
     if len(_recent_failures(limiter_key)) >= MAX_FAILED_LOGINS:
@@ -329,7 +316,7 @@ def login(
     _failed_logins.pop(limiter_key, None)
     _purge_expired_sessions(db)
     ttl = REMEMBERED_SESSION_TTL if request.remember_me else SHORT_SESSION_TTL
-    return _session_response(db, user, ttl)
+    return session_response(db, user, ttl)
 
 
 def _unauthorized() -> HTTPException:
