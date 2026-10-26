@@ -1,55 +1,59 @@
 import 'package:flutter/foundation.dart';
 
 import '../../models/body_progress_model.dart';
+import 'user_storage.dart';
 
+/// Body measurements the user enters; stored on the device per user.
 class BodyProgressStore {
-  static final ValueNotifier<BodyProgress> progress =
-      ValueNotifier<BodyProgress>(
-        const BodyProgress(
-          startWeight: 72.0,
-          currentWeight: 67.5,
-          targetWeight: 62.0,
-          heightCm: 168,
-          weeklyWeights: [
-            WeightEntry(weekLabel: '1. Hafta', weight: 72.0),
-            WeightEntry(weekLabel: '2. Hafta', weight: 71.2),
-            WeightEntry(weekLabel: '3. Hafta', weight: 70.4),
-            WeightEntry(weekLabel: '4. Hafta', weight: 69.1),
-            WeightEntry(weekLabel: '5. Hafta', weight: 68.3),
-            WeightEntry(weekLabel: '6. Hafta', weight: 67.5),
-          ],
-          measurements: [
-            BodyMeasurement(
-              title: 'Bel',
-              startValue: 82,
-              currentValue: 76,
-              unit: 'cm',
-            ),
-            BodyMeasurement(
-              title: 'Kalça',
-              startValue: 102,
-              currentValue: 98,
-              unit: 'cm',
-            ),
-            BodyMeasurement(
-              title: 'Göğüs',
-              startValue: 94,
-              currentValue: 91,
-              unit: 'cm',
-            ),
-            BodyMeasurement(
-              title: 'Kol',
-              startValue: 31,
-              currentValue: 30,
-              unit: 'cm',
-            ),
-            BodyMeasurement(
-              title: 'Bacak',
-              startValue: 58,
-              currentValue: 55,
-              unit: 'cm',
-            ),
-          ],
-        ),
-      );
+  static const _storageName = 'body';
+
+  static final ValueNotifier<BodyProgress> progress = ValueNotifier(
+    BodyProgress.empty,
+  );
+
+  static Future<void> load() async {
+    progress.value = BodyProgress.fromJson(
+      await UserStorage.readJson(_storageName),
+    );
+  }
+
+  static Future<void> _save(BodyProgress next) async {
+    progress.value = next;
+    await UserStorage.writeJson(_storageName, next.toJson());
+  }
+
+  static Future<void> addWeight(double kg, {DateTime? date}) {
+    final entry = WeightEntry(date: date ?? DateTime.now(), kg: kg);
+    final weights = [...progress.value.weights, entry]
+      ..sort((a, b) => a.date.compareTo(b.date));
+    return _save(progress.value.copyWith(weights: weights));
+  }
+
+  static Future<void> removeWeight(WeightEntry entry) {
+    return _save(
+      progress.value.copyWith(
+        weights: progress.value.weights.where((w) => w != entry).toList(),
+      ),
+    );
+  }
+
+  static Future<void> addMeasurement(MeasurementType type, double cm) {
+    final entry = MeasurementEntry(date: DateTime.now(), type: type, cm: cm);
+    return _save(
+      progress.value.copyWith(
+        measurements: [...progress.value.measurements, entry],
+      ),
+    );
+  }
+
+  static Future<void> setProfile({double? heightCm, double? targetWeightKg}) {
+    return _save(
+      progress.value.copyWith(
+        heightCm: heightCm,
+        targetWeightKg: targetWeightKg,
+      ),
+    );
+  }
+
+  static void clear() => progress.value = BodyProgress.empty;
 }

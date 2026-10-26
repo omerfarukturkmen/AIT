@@ -1,90 +1,64 @@
-/// UI-facing analysis result shown on ResultPage / history.
+import '../data/exercise_catalog.dart';
+import 'backend_analysis_response.dart';
+
+/// Result of one video analysis. Holds raw values and form-issue codes;
+/// screens turn them into text in the user's language.
 class AnalysisResult {
-  final String exerciseName;
+  final int? id;
+  final DateTime createdAt;
+  final ExerciseId exercise;
   final int score;
-  final int riskPercent;
   final int repetitionCount;
   final int validReps;
   final int invalidReps;
-  final double confidence;
+
+  /// Pose-detection confidence, 0-100.
+  final double confidencePercent;
   final double durationSeconds;
-  final String duration;
-  final int totalFrames;
-  final int processedFrames;
   final double? minKneeAngle;
   final double? averageMinKneeAngle;
-  final double? rangeOfMotion;
-  final String selectedSide;
-  final List<String> mistakes;
-  final List<String> recommendations;
+  final double? kneeRangeOfMotion;
 
-  /// Kept for compatibility; prefer [averageMinKneeAngle] on the result UI.
-  final String movementAngle;
+  /// Analyzer codes such as `insufficient_depth` or `elbows_flared`.
+  final List<String> issueCodes;
 
   const AnalysisResult({
-    required this.exerciseName,
+    required this.id,
+    required this.createdAt,
+    required this.exercise,
     required this.score,
-    required this.riskPercent,
     required this.repetitionCount,
     required this.validReps,
     required this.invalidReps,
-    required this.confidence,
+    required this.confidencePercent,
     required this.durationSeconds,
-    required this.duration,
-    required this.totalFrames,
-    required this.processedFrames,
     required this.minKneeAngle,
     required this.averageMinKneeAngle,
-    required this.rangeOfMotion,
-    required this.selectedSide,
-    required this.mistakes,
-    required this.recommendations,
-    required this.movementAngle,
+    required this.kneeRangeOfMotion,
+    required this.issueCodes,
   });
 
-  factory AnalysisResult.fromJson(Map<String, dynamic> json) {
+  factory AnalysisResult.fromBackend(BackendAnalysisResponse response) {
     return AnalysisResult(
-      exerciseName: json['exerciseName'] ?? '',
-      score: json['score'] ?? 0,
-      riskPercent: json['riskPercent'] ?? (100 - (json['score'] as int? ?? 0)),
-      repetitionCount: json['repetitionCount'] ?? 0,
-      validReps: json['validReps'] ?? 0,
-      invalidReps: json['invalidReps'] ?? 0,
-      confidence: (json['confidence'] ?? 0).toDouble(),
-      durationSeconds: (json['durationSeconds'] ?? 0).toDouble(),
-      duration: json['duration'] ?? '',
-      totalFrames: json['totalFrames'] ?? 0,
-      processedFrames: json['processedFrames'] ?? 0,
-      minKneeAngle: (json['minKneeAngle'] as num?)?.toDouble(),
-      averageMinKneeAngle: (json['averageMinKneeAngle'] as num?)?.toDouble(),
-      rangeOfMotion: (json['rangeOfMotion'] as num?)?.toDouble(),
-      selectedSide: json['selectedSide'] ?? 'unavailable',
-      mistakes: List<String>.from(json['mistakes'] ?? []),
-      recommendations: List<String>.from(json['recommendations'] ?? []),
-      movementAngle: json['movementAngle'] ?? '',
+      id: response.analysisId,
+      createdAt: response.createdAt ?? DateTime.now(),
+      exercise:
+          exerciseFromApiKey(response.exerciseType) ??
+          exerciseFromApiKey(response.exercise) ??
+          ExerciseId.squat,
+      score: response.score.clamp(0, 100),
+      repetitionCount: response.repetitionCount,
+      validReps: response.validReps,
+      invalidReps: response.invalidReps,
+      confidencePercent: response.confidencePercent,
+      durationSeconds: response.durationSeconds,
+      minKneeAngle: response.minKneeAngle,
+      averageMinKneeAngle: response.averageMinKneeAngle,
+      kneeRangeOfMotion: response.kneeRangeOfMotion,
+      issueCodes: response.errors.toSet().toList(),
     );
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'exerciseName': exerciseName,
-      'score': score,
-      'riskPercent': riskPercent,
-      'repetitionCount': repetitionCount,
-      'validReps': validReps,
-      'invalidReps': invalidReps,
-      'confidence': confidence,
-      'durationSeconds': durationSeconds,
-      'duration': duration,
-      'totalFrames': totalFrames,
-      'processedFrames': processedFrames,
-      'minKneeAngle': minKneeAngle,
-      'averageMinKneeAngle': averageMinKneeAngle,
-      'rangeOfMotion': rangeOfMotion,
-      'selectedSide': selectedSide,
-      'mistakes': mistakes,
-      'recommendations': recommendations,
-      'movementAngle': movementAngle,
-    };
-  }
+  factory AnalysisResult.fromPayload(Map<String, dynamic> json) =>
+      AnalysisResult.fromBackend(BackendAnalysisResponse.fromJson(json));
 }

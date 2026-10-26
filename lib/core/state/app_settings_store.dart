@@ -1,75 +1,91 @@
-import 'package:flutter/foundation.dart';
+import 'dart:ui';
+
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AppSettings {
-  final bool voiceFeedbackEnabled;
+  final ThemeMode themeMode;
+
+  /// 'tr' or 'en'; drives both the interface and the voice language.
   final String languageCode;
-  final int feedbackIntervalSeconds;
-  final bool demoModeEnabled;
-  final bool backendReady;
-  final bool isDarkMode;
+  final bool voiceFeedbackEnabled;
 
   const AppSettings({
-    required this.voiceFeedbackEnabled,
+    required this.themeMode,
     required this.languageCode,
-    required this.feedbackIntervalSeconds,
-    required this.demoModeEnabled,
-    required this.backendReady,
-    required this.isDarkMode,
+    required this.voiceFeedbackEnabled,
   });
 
+  Locale get locale => Locale(languageCode);
+
+  /// Text-to-speech voice for the current language.
+  String get ttsLanguage => languageCode == 'tr' ? 'tr-TR' : 'en-US';
+
   AppSettings copyWith({
-    bool? voiceFeedbackEnabled,
+    ThemeMode? themeMode,
     String? languageCode,
-    int? feedbackIntervalSeconds,
-    bool? demoModeEnabled,
-    bool? backendReady,
-    bool? isDarkMode,
+    bool? voiceFeedbackEnabled,
   }) {
     return AppSettings(
-      voiceFeedbackEnabled: voiceFeedbackEnabled ?? this.voiceFeedbackEnabled,
+      themeMode: themeMode ?? this.themeMode,
       languageCode: languageCode ?? this.languageCode,
-      feedbackIntervalSeconds:
-          feedbackIntervalSeconds ?? this.feedbackIntervalSeconds,
-      demoModeEnabled: demoModeEnabled ?? this.demoModeEnabled,
-      backendReady: backendReady ?? this.backendReady,
-      isDarkMode: isDarkMode ?? this.isDarkMode,
+      voiceFeedbackEnabled: voiceFeedbackEnabled ?? this.voiceFeedbackEnabled,
     );
   }
 }
 
+/// Device-wide preferences, persisted with shared_preferences.
 class AppSettingsStore {
-  static final ValueNotifier<AppSettings> settings = ValueNotifier<AppSettings>(
-    const AppSettings(
+  static const _themeKey = 'settings.theme';
+  static const _languageKey = 'settings.language';
+  static const _voiceKey = 'settings.voice';
+
+  static const supportedLanguages = ['tr', 'en'];
+
+  static final ValueNotifier<AppSettings> settings = ValueNotifier(
+    AppSettings(
+      themeMode: ThemeMode.system,
+      languageCode: _deviceLanguage(),
       voiceFeedbackEnabled: true,
-      languageCode: 'tr-TR',
-      feedbackIntervalSeconds: 2,
-      demoModeEnabled: true,
-      backendReady: false,
-      isDarkMode: true,
     ),
   );
 
-  static void updateVoiceFeedback(bool value) {
-    settings.value = settings.value.copyWith(voiceFeedbackEnabled: value);
+  static String _deviceLanguage() {
+    final code = PlatformDispatcher.instance.locale.languageCode;
+    return supportedLanguages.contains(code) ? code : 'en';
   }
 
-  static void updateLanguage(String languageCode) {
+  static Future<void> load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final theme = prefs.getString(_themeKey);
+    final language = prefs.getString(_languageKey);
+    settings.value = settings.value.copyWith(
+      themeMode: ThemeMode.values
+          .where((mode) => mode.name == theme)
+          .firstOrNull,
+      languageCode: supportedLanguages.contains(language) ? language : null,
+      voiceFeedbackEnabled: prefs.getBool(_voiceKey),
+    );
+  }
+
+  static Future<void> setThemeMode(ThemeMode mode) async {
+    settings.value = settings.value.copyWith(themeMode: mode);
+    await (await SharedPreferences.getInstance()).setString(
+      _themeKey,
+      mode.name,
+    );
+  }
+
+  static Future<void> setLanguage(String languageCode) async {
     settings.value = settings.value.copyWith(languageCode: languageCode);
+    await (await SharedPreferences.getInstance()).setString(
+      _languageKey,
+      languageCode,
+    );
   }
 
-  static void updateFeedbackInterval(int seconds) {
-    settings.value = settings.value.copyWith(feedbackIntervalSeconds: seconds);
-  }
-
-  static void updateDemoMode(bool value) {
-    settings.value = settings.value.copyWith(demoModeEnabled: value);
-  }
-
-  static void updateBackendReady(bool value) {
-    settings.value = settings.value.copyWith(backendReady: value);
-  }
-
-  static void updateThemeMode(bool isDarkMode) {
-    settings.value = settings.value.copyWith(isDarkMode: isDarkMode);
+  static Future<void> setVoiceFeedback(bool enabled) async {
+    settings.value = settings.value.copyWith(voiceFeedbackEnabled: enabled);
+    await (await SharedPreferences.getInstance()).setBool(_voiceKey, enabled);
   }
 }

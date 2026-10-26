@@ -1,80 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
-import 'core/constants/app_colors.dart';
 import 'core/state/app_settings_store.dart';
+import 'core/theme/app_theme.dart';
 import 'features/splash/splash_page.dart';
+import 'l10n/app_localizations.dart';
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
-
-  ThemeData _darkTheme() {
-    return ThemeData(
-      useMaterial3: true,
-      brightness: Brightness.dark,
-      scaffoldBackgroundColor: AppColors.bg1,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: AppColors.primary,
-        brightness: Brightness.dark,
-      ),
-      fontFamily: 'Roboto',
-      appBarTheme: const AppBarTheme(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        centerTitle: true,
-        foregroundColor: AppColors.text,
-      ),
-      textTheme: const TextTheme(
-        bodyMedium: TextStyle(color: AppColors.text),
-        bodyLarge: TextStyle(color: AppColors.text),
-      ),
-      snackBarTheme: SnackBarThemeData(
-        backgroundColor: AppColors.card,
-        contentTextStyle: const TextStyle(
-          color: AppColors.text,
-          fontWeight: FontWeight.w700,
-        ),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      ),
-    );
-  }
-
-  ThemeData _lightTheme() {
-    return ThemeData(
-      useMaterial3: true,
-      brightness: Brightness.light,
-      scaffoldBackgroundColor: const Color(0xFFEFF4FA),
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: AppColors.primary,
-        brightness: Brightness.light,
-        primary: AppColors.primary,
-        secondary: AppColors.electricBlue,
-        surface: const Color(0xFFF8FAFC),
-      ),
-      fontFamily: 'Roboto',
-      appBarTheme: const AppBarTheme(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        centerTitle: true,
-        foregroundColor: Color(0xFF111827),
-      ),
-      textTheme: const TextTheme(
-        bodyMedium: TextStyle(color: Color(0xFF111827)),
-        bodyLarge: TextStyle(color: Color(0xFF111827)),
-        titleMedium: TextStyle(color: Color(0xFF111827)),
-        titleLarge: TextStyle(color: Color(0xFF111827)),
-      ),
-      snackBarTheme: SnackBarThemeData(
-        backgroundColor: const Color(0xFFFFFFFF),
-        contentTextStyle: const TextStyle(
-          color: Color(0xFF111827),
-          fontWeight: FontWeight.w700,
-        ),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -83,13 +16,38 @@ class MyApp extends StatelessWidget {
       builder: (context, settings, child) {
         return MaterialApp(
           debugShowCheckedModeBanner: false,
-          title: 'AIT',
-          theme: _lightTheme(),
-          darkTheme: _darkTheme(),
-          themeMode: settings.isDarkMode ? ThemeMode.dark : ThemeMode.light,
+          onGenerateTitle: (context) => AppLocalizations.of(context).appName,
+          theme: AppTheme.light(),
+          darkTheme: AppTheme.dark(),
+          themeMode: settings.themeMode,
+          locale: settings.locale,
+          supportedLocales: AppLocalizations.supportedLocales,
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          // Snackbars span the screen on phones but stay compact and centered
+          // on wide screens.
+          builder: (context, child) {
+            final width = MediaQuery.sizeOf(context).width;
+            if (width < 600) return child!;
+            final theme = Theme.of(context);
+            return Theme(
+              data: theme.copyWith(
+                snackBarTheme: theme.snackBarTheme.copyWith(width: 480),
+              ),
+              child: child!,
+            );
+          },
           home: const SplashPage(),
         );
       },
     );
   }
+}
+
+extension L10nContext on BuildContext {
+  AppLocalizations get l10n => AppLocalizations.of(this);
 }

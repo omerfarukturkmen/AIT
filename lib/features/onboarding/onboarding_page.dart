@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../../core/constants/app_colors.dart';
+import '../../app.dart';
+import '../../core/state/app_settings_store.dart';
 import '../../core/state/auth_store.dart';
 import '../../core/state/onboarding_store.dart';
-import '../../widgets/glass_card.dart';
-import '../../widgets/premium_background.dart';
-import '../../widgets/premium_button.dart';
+import '../../core/theme/app_theme.dart';
+import '../../widgets/common.dart';
 import '../auth/auth_page.dart';
 import '../navigation/main_navigation_page.dart';
 
@@ -17,42 +17,17 @@ class OnboardingPage extends StatefulWidget {
 }
 
 class _OnboardingPageState extends State<OnboardingPage> {
-  final PageController _pageController = PageController();
-  int currentIndex = 0;
+  final _controller = PageController();
+  int _index = 0;
 
-  final List<_OnboardingItem> items = const [
-    _OnboardingItem(
-      icon: Icons.videocam_rounded,
-      title: 'Canlı Kamera Analizi',
-      description:
-          'Kamera karşısında hareketlerini canlı olarak takip et. Uygulama form skorunu, tekrar sayısını ve anlık geri bildirimleri gösterir.',
-      badge: 'Live AI Feedback',
-    ),
-    _OnboardingItem(
-      icon: Icons.video_library_rounded,
-      title: 'Video Yükleyerek Analiz',
-      description:
-          'Daha önce çektiğin egzersiz videolarını yükle. Yapay zeka destekli analiz sonucunda skor, hata ve önerileri rapor olarak gör.',
-      badge: 'Upload Video Analysis',
-    ),
-    _OnboardingItem(
-      icon: Icons.volume_up_rounded,
-      title: 'Sesli Geri Bildirim',
-      description:
-          'Egzersiz sırasında ekrana bakmadan kulaklık üzerinden uyarı al. Dil, sesli geri bildirim ve uyarı sıklığını ayarlardan yönet.',
-      badge: 'Voice Coaching',
-    ),
-  ];
+  static const _pageCount = 3;
 
-  bool get isLastPage => currentIndex == items.length - 1;
+  bool get _isLast => _index == _pageCount - 1;
 
-  Future<void> finishOnboarding() async {
+  Future<void> _finish() async {
     await OnboardingStore.markAsSeen();
-
     if (!mounted) return;
-
-    Navigator.pushReplacement(
-      context,
+    Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (_) => AuthStore.isSignedIn
             ? const MainNavigationPage()
@@ -61,252 +36,197 @@ class _OnboardingPageState extends State<OnboardingPage> {
     );
   }
 
-  void nextPage() {
-    if (isLastPage) {
-      finishOnboarding();
+  void _next() {
+    if (_isLast) {
+      _finish();
       return;
     }
-
-    _pageController.nextPage(
-      duration: const Duration(milliseconds: 350),
+    _controller.nextPage(
+      duration: const Duration(milliseconds: 320),
       curve: Curves.easeOutCubic,
     );
   }
 
   @override
   void dispose() {
-    _pageController.dispose();
+    _controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: PremiumBackground(
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    const Expanded(
-                      child: Text(
-                        'AIT Fitness Trainer',
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: finishOnboarding,
-                      style: TextButton.styleFrom(
-                        foregroundColor: AppColors.textSoft,
-                      ),
-                      child: const Text('Geç'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 18),
-                Expanded(
-                  child: PageView.builder(
-                    controller: _pageController,
-                    itemCount: items.length,
-                    onPageChanged: (index) {
-                      setState(() {
-                        currentIndex = index;
-                      });
-                    },
-                    itemBuilder: (context, index) {
-                      final item = items[index];
-
-                      return _OnboardingCard(item: item);
-                    },
-                  ),
-                ),
-                const SizedBox(height: 20),
-                _DotsIndicator(count: items.length, currentIndex: currentIndex),
-                const SizedBox(height: 22),
-                PremiumButton(
-                  icon: isLastPage
-                      ? Icons.check_circle_rounded
-                      : Icons.arrow_forward_rounded,
-                  text: isLastPage ? 'Başla' : 'Devam Et',
-                  onPressed: nextPage,
-                ),
-              ],
-            ),
-          ),
-        ),
+    final l10n = context.l10n;
+    final pages = [
+      (
+        Icons.videocam_rounded,
+        l10n.onboardingCaptureTitle,
+        l10n.onboardingCaptureBody,
       ),
-    );
-  }
-}
+      (
+        Icons.insights_rounded,
+        l10n.onboardingAnalyzeTitle,
+        l10n.onboardingAnalyzeBody,
+      ),
+      (
+        Icons.trending_up_rounded,
+        l10n.onboardingProgressTitle,
+        l10n.onboardingProgressBody,
+      ),
+    ];
 
-class _OnboardingCard extends StatelessWidget {
-  final _OnboardingItem item;
-
-  const _OnboardingCard({required this.item});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: GlassCard(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _FeatureBadge(text: item.badge),
-            const SizedBox(height: 28),
-            Container(
-              height: 116,
-              width: 116,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  colors: [
-                    Color(0xFF5B4B8A),
-                    Color(0xFF3B2A6D),
-                    Color(0xFF1F1A3D),
-                  ],
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.purpleGlow.withValues(alpha: 0.35),
-                    blurRadius: 38,
-                    offset: const Offset(0, 16),
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                Gap.page,
+                Gap.md,
+                Gap.page,
+                Gap.xl,
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      const BrandMark(size: 36),
+                      const SizedBox(width: Gap.md),
+                      Text(l10n.appName, style: context.text.titleLarge),
+                      const Spacer(),
+                      const _LanguageToggle(),
+                      TextButton(
+                        onPressed: _finish,
+                        child: Text(l10n.onboardingSkip),
+                      ),
+                    ],
+                  ),
+                  Expanded(
+                    child: PageView.builder(
+                      controller: _controller,
+                      itemCount: _pageCount,
+                      onPageChanged: (index) => setState(() => _index = index),
+                      itemBuilder: (context, index) {
+                        final (icon, title, body) = pages[index];
+                        return _OnboardingSlide(
+                          icon: icon,
+                          title: title,
+                          body: body,
+                        );
+                      },
+                    ),
+                  ),
+                  _PageDots(count: _pageCount, index: _index),
+                  const SizedBox(height: Gap.xl),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: _next,
+                      child: Text(
+                        _isLast ? l10n.onboardingStart : l10n.commonContinue,
+                      ),
+                    ),
                   ),
                 ],
               ),
-              child: Icon(item.icon, color: Colors.white, size: 56),
             ),
-            const SizedBox(height: 30),
-            Text(
-              item.title,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 27,
-                fontWeight: FontWeight.w900,
-                letterSpacing: -0.7,
-              ),
-            ),
-            const SizedBox(height: 14),
-            Text(
-              item.description,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: AppColors.textSoft,
-                height: 1.55,
-                fontSize: 14,
-              ),
-            ),
-            const SizedBox(height: 28),
-            const _ApiReadyBox(),
-          ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _DotsIndicator extends StatelessWidget {
-  final int count;
-  final int currentIndex;
+class _OnboardingSlide extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String body;
 
-  const _DotsIndicator({required this.count, required this.currentIndex});
+  const _OnboardingSlide({
+    required this.icon,
+    required this.title,
+    required this.body,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return Column(
       mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(count, (index) {
-        final isActive = index == currentIndex;
-
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 250),
-          margin: const EdgeInsets.symmetric(horizontal: 4),
-          height: 9,
-          width: isActive ? 28 : 9,
+      children: [
+        Container(
+          width: 120,
+          height: 120,
           decoration: BoxDecoration(
-            color: isActive
-                ? AppColors.purpleGlow
-                : Colors.white.withValues(alpha: 0.22),
-            borderRadius: BorderRadius.circular(99),
+            color: context.colors.primaryContainer,
+            borderRadius: BorderRadius.circular(36),
           ),
-        );
-      }),
-    );
-  }
-}
-
-class _FeatureBadge extends StatelessWidget {
-  final String text;
-
-  const _FeatureBadge({required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
-      decoration: BoxDecoration(
-        color: AppColors.purpleGlow.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(99),
-        border: Border.all(color: AppColors.purpleGlow.withValues(alpha: 0.30)),
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(
-          color: AppColors.purpleGlow,
-          fontWeight: FontWeight.w900,
-          fontSize: 12,
+          child: Icon(icon, size: 56, color: context.colors.onPrimaryContainer),
         ),
-      ),
+        const SizedBox(height: Gap.xxl),
+        Text(
+          title,
+          textAlign: TextAlign.center,
+          style: context.text.headlineMedium,
+        ),
+        const SizedBox(height: Gap.md),
+        Text(
+          body,
+          textAlign: TextAlign.center,
+          style: context.text.bodyLarge?.copyWith(
+            color: context.tokens.textSecondary,
+          ),
+        ),
+      ],
     );
   }
 }
 
-class _ApiReadyBox extends StatelessWidget {
-  const _ApiReadyBox();
+class _PageDots extends StatelessWidget {
+  final int count;
+  final int index;
+
+  const _PageDots({required this.count, required this.index});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.045),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.09)),
-      ),
-      child: const Row(
+    return Semantics(
+      label: '${index + 1} / $count',
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.cloud_done_rounded, color: AppColors.purpleGlow),
-          SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              'Frontend demo service ile çalışır. Backend API hazır olduğunda aynı ekranlar gerçek analiz verileriyle kullanılabilir.',
-              style: TextStyle(
-                color: AppColors.textSoft,
-                height: 1.4,
-                fontSize: 12,
+          for (var i = 0; i < count; i++)
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              margin: const EdgeInsets.symmetric(horizontal: 3),
+              width: i == index ? 22 : 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: i == index
+                    ? context.colors.primary
+                    : context.tokens.border,
+                borderRadius: BorderRadius.circular(4),
               ),
             ),
-          ),
         ],
       ),
     );
   }
 }
 
-class _OnboardingItem {
-  final IconData icon;
-  final String title;
-  final String description;
-  final String badge;
+/// Compact TR / EN switch for screens shown before sign-in.
+class _LanguageToggle extends StatelessWidget {
+  const _LanguageToggle();
 
-  const _OnboardingItem({
-    required this.icon,
-    required this.title,
-    required this.description,
-    required this.badge,
-  });
+  @override
+  Widget build(BuildContext context) {
+    final current = AppSettingsStore.settings.value.languageCode;
+    final next = current == 'tr' ? 'en' : 'tr';
+    return TextButton(
+      onPressed: () => AppSettingsStore.setLanguage(next),
+      child: Text(
+        next.toUpperCase(),
+        semanticsLabel: next == 'tr' ? 'Türkçe' : 'English',
+      ),
+    );
+  }
 }

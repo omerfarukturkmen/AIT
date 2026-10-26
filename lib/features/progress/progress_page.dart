@@ -1,156 +1,282 @@
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 
-import '../../../core/constants/app_colors.dart';
-import '../../../core/state/body_progress_store.dart';
-import '../../../models/body_progress_model.dart';
-import '../../../widgets/glass_card.dart';
-import '../../../widgets/premium_background.dart';
+import '../../app.dart';
+import '../../core/state/analysis_history_store.dart';
+import '../../core/state/body_progress_store.dart';
+import '../../core/theme/app_theme.dart';
+import '../../l10n/app_localizations.dart';
+import '../../models/analysis_result_model.dart';
+import '../../models/body_progress_model.dart';
+import '../../widgets/app_card.dart';
+import '../../widgets/common.dart';
+import '../../widgets/page_scaffold.dart';
+import '../../widgets/trend_chart.dart';
+
+String measurementName(AppLocalizations l10n, MeasurementType type) =>
+    switch (type) {
+      MeasurementType.waist => l10n.measureWaist,
+      MeasurementType.hip => l10n.measureHip,
+      MeasurementType.chest => l10n.measureChest,
+      MeasurementType.arm => l10n.measureArm,
+      MeasurementType.thigh => l10n.measureThigh,
+    };
+
+String _kg(double value) => NumberFormat('0.#').format(value);
 
 class ProgressPage extends StatelessWidget {
   const ProgressPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: PremiumBackground(
-        child: SafeArea(
-          child: ValueListenableBuilder<BodyProgress>(
-            valueListenable: BodyProgressStore.progress,
-            builder: (context, progress, child) {
-              return SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const Text(
-                      'Gelişim Takibi',
-                      style: TextStyle(
-                        fontSize: 30,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Kilo değişimini, hedef ilerlemeni ve vücut ölçülerindeki gelişimi takip et.',
-                      style: TextStyle(color: AppColors.textSoft, height: 1.4),
-                    ),
-                    const SizedBox(height: 22),
-                    _ProgressHeroCard(progress: progress),
-                    const SizedBox(height: 16),
-                    _WeightStatsGrid(progress: progress),
-                    const SizedBox(height: 16),
-                    _BmiCard(progress: progress),
-                    const SizedBox(height: 16),
-                    _WeightChartCard(progress: progress),
-                    const SizedBox(height: 16),
-                    _MeasurementsCard(progress: progress),
-                    const SizedBox(height: 16),
-                    const _ProgressInfoCard(),
-                  ],
+    final l10n = context.l10n;
+    return ValueListenableBuilder<BodyProgress>(
+      valueListenable: BodyProgressStore.progress,
+      builder: (context, body, _) {
+        return PageScaffold(
+          title: l10n.progressPageTitle,
+          subtitle: l10n.progressPageSubtitle,
+          children: [
+            const _ScoreTrend(),
+            _WeightSection(body: body),
+            if (body.bmi != null) _BmiCard(bmi: body.bmi!),
+            _MeasurementsSection(body: body),
+            const SizedBox(height: Gap.xl),
+            Row(
+              children: [
+                Icon(
+                  Icons.lock_outline_rounded,
+                  size: 16,
+                  color: context.tokens.textTertiary,
                 ),
-              );
-            },
-          ),
-        ),
-      ),
+                const SizedBox(width: Gap.sm),
+                Expanded(
+                  child: Text(
+                    l10n.progressLocalNote,
+                    style: context.text.bodySmall,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+      },
     );
   }
 }
 
-class _ProgressHeroCard extends StatelessWidget {
-  final BodyProgress progress;
-
-  const _ProgressHeroCard({required this.progress});
+class _ScoreTrend extends StatelessWidget {
+  const _ScoreTrend();
 
   @override
   Widget build(BuildContext context) {
-    final percentage = (progress.progressRatio * 100).round();
-
-    return GlassCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(
-                Icons.trending_down_rounded,
-                color: AppColors.neonGreen,
-                size: 34,
-              ),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Text(
-                  'Hedef İlerlemesi',
-                  style: TextStyle(fontSize: 21, fontWeight: FontWeight.w900),
+    final l10n = context.l10n;
+    return ValueListenableBuilder<List<AnalysisResult>>(
+      valueListenable: AnalysisHistoryStore.results,
+      builder: (context, results, _) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SectionHeader(title: l10n.progressScoreTitle),
+            if (results.length < 2)
+              EmptyState(
+                icon: Icons.show_chart_rounded,
+                title: l10n.progressScoreEmptyTitle,
+                message: l10n.progressScoreEmptyBody,
+              )
+            else
+              AppCard(
+                padding: const EdgeInsets.fromLTRB(
+                  Gap.sm,
+                  Gap.lg,
+                  Gap.lg,
+                  Gap.sm,
+                ),
+                child: TrendChart(
+                  points: [
+                    for (final r in results)
+                      TrendPoint(r.createdAt, r.score.toDouble()),
+                  ],
+                  minY: 0,
+                  maxY: 100,
+                  format: (v) => '${v.round()}',
+                  semanticsLabel: l10n.progressScoreTitle,
                 ),
               ),
-              Text(
-                '$percentage%',
-                style: const TextStyle(
-                  color: AppColors.neonGreen,
-                  fontSize: 28,
-                  fontWeight: FontWeight.w900,
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _WeightSection extends StatelessWidget {
+  final BodyProgress body;
+
+  const _WeightSection({required this.body});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final current = body.currentWeight;
+    final change = body.weightChange;
+    final progress = body.goalProgress;
+    final dateFormat = DateFormat.yMMMd(
+      Localizations.localeOf(context).toLanguageTag(),
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SectionHeader(
+          title: l10n.progressWeightTitle,
+          actionLabel: l10n.progressGoalAndHeight,
+          onAction: () => _editProfile(context, body),
+        ),
+        if (current == null)
+          EmptyState(
+            icon: Icons.monitor_weight_outlined,
+            title: l10n.progressWeightEmptyTitle,
+            message: l10n.progressWeightEmptyBody,
+            actionLabel: l10n.progressAddWeight,
+            onAction: () => _addWeight(context),
+          )
+        else ...[
+          AppCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(_kg(current), style: context.text.displaySmall),
+                    const SizedBox(width: Gap.xs),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Text('kg', style: context.text.titleMedium),
+                    ),
+                    const Spacer(),
+                    if (change != null && body.weights.length > 1)
+                      Pill(
+                        label: '${change > 0 ? '+' : ''}${_kg(change)} kg',
+                        icon: change <= 0
+                            ? Icons.south_east_rounded
+                            : Icons.north_east_rounded,
+                      ),
+                  ],
+                ),
+                if (progress != null) ...[
+                  const SizedBox(height: Gap.lg),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          l10n.progressGoal(_kg(body.targetWeightKg!)),
+                          style: context.text.bodySmall,
+                        ),
+                      ),
+                      Text(
+                        NumberFormat.percentPattern(
+                          Localizations.localeOf(context).toLanguageTag(),
+                        ).format(progress),
+                        style: context.text.labelLarge,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: Gap.sm),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: progress,
+                      minHeight: 8,
+                    ),
+                  ),
+                ],
+                if (body.weights.length > 1) ...[
+                  const SizedBox(height: Gap.xl),
+                  TrendChart(
+                    points: [
+                      for (final w in body.weights) TrendPoint(w.date, w.kg),
+                    ],
+                    format: (v) => _kg(v),
+                    semanticsLabel: l10n.progressWeightTitle,
+                    height: 180,
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: Gap.md),
+          AppCard(
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: [
+                for (final entry in body.weights.reversed.take(5))
+                  ListTile(
+                    dense: true,
+                    title: Text(
+                      '${_kg(entry.kg)} kg',
+                      style: context.text.bodyMedium,
+                    ),
+                    subtitle: Text(dateFormat.format(entry.date)),
+                    trailing: IconButton(
+                      tooltip: l10n.commonDelete,
+                      icon: const Icon(Icons.delete_outline_rounded, size: 20),
+                      onPressed: () => BodyProgressStore.removeWeight(entry),
+                    ),
+                  ),
+                const Divider(),
+                TextButton.icon(
+                  onPressed: () => _addWeight(context),
+                  icon: const Icon(Icons.add_rounded),
+                  label: Text(l10n.progressAddWeight),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _BmiCard extends StatelessWidget {
+  final double bmi;
+
+  const _BmiCard({required this.bmi});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final tokens = context.tokens;
+    final (label, color) = bmi < 18.5
+        ? (l10n.bmiUnder, tokens.warning)
+        : bmi < 25
+        ? (l10n.bmiNormal, tokens.success)
+        : bmi < 30
+        ? (l10n.bmiOver, tokens.warning)
+        : (l10n.bmiObese, tokens.danger);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SectionHeader(title: l10n.bmiTitle),
+        AppCard(
+          child: Row(
+            children: [
+              Text(bmi.toStringAsFixed(1), style: context.text.headlineMedium),
+              const SizedBox(width: Gap.md),
+              Pill(label: label, color: color),
+              const Spacer(),
+              Flexible(
+                child: Text(
+                  l10n.bmiNote,
+                  textAlign: TextAlign.end,
+                  style: context.text.bodySmall,
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 18),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(99),
-            child: LinearProgressIndicator(
-              minHeight: 11,
-              value: progress.progressRatio,
-              backgroundColor: Colors.white.withValues(alpha: 0.08),
-              valueColor: const AlwaysStoppedAnimation<Color>(
-                AppColors.neonGreen,
-              ),
-            ),
-          ),
-          const SizedBox(height: 14),
-          Text(
-            '${progress.startWeight.toStringAsFixed(1)} kg başlangıçtan ${progress.currentWeight.toStringAsFixed(1)} kg seviyesine ulaşıldı.',
-            style: const TextStyle(color: AppColors.textSoft, height: 1.45),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _WeightStatsGrid extends StatelessWidget {
-  final BodyProgress progress;
-
-  const _WeightStatsGrid({required this.progress});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _StatCard(
-            title: 'Başlangıç',
-            value: '${progress.startWeight.toStringAsFixed(1)} kg',
-            icon: Icons.flag_rounded,
-            color: AppColors.electricBlue,
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _StatCard(
-            title: 'Güncel',
-            value: '${progress.currentWeight.toStringAsFixed(1)} kg',
-            icon: Icons.monitor_weight_rounded,
-            color: AppColors.primary,
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _StatCard(
-            title: 'Hedef',
-            value: '${progress.targetWeight.toStringAsFixed(1)} kg',
-            icon: Icons.track_changes_rounded,
-            color: AppColors.neonGreen,
           ),
         ),
       ],
@@ -158,378 +284,207 @@ class _WeightStatsGrid extends StatelessWidget {
   }
 }
 
-class _StatCard extends StatelessWidget {
-  final String title;
-  final String value;
-  final IconData icon;
-  final Color color;
+class _MeasurementsSection extends StatelessWidget {
+  final BodyProgress body;
 
-  const _StatCard({
-    required this.title,
-    required this.value,
-    required this.icon,
-    required this.color,
-  });
+  const _MeasurementsSection({required this.body});
 
   @override
   Widget build(BuildContext context) {
-    return GlassCard(
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        children: [
-          Icon(icon, color: color, size: 26),
-          const SizedBox(height: 10),
-          Text(
-            value,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: color,
-              fontSize: 17,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: AppColors.textSoft, fontSize: 11),
-          ),
-        ],
-      ),
-    );
-  }
-}
+    final l10n = context.l10n;
+    final summary = body.measurementSummary;
 
-class _BmiCard extends StatelessWidget {
-  final BodyProgress progress;
-
-  const _BmiCard({required this.progress});
-
-  Color get bmiColor {
-    final bmi = progress.bmi;
-
-    if (bmi < 18.5) return Colors.orangeAccent;
-    if (bmi < 25) return AppColors.neonGreen;
-    if (bmi < 30) return AppColors.orange;
-    return AppColors.red;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassCard(
-      child: Row(
-        children: [
-          Container(
-            height: 58,
-            width: 58,
-            decoration: BoxDecoration(
-              color: bmiColor.withValues(alpha: 0.13),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: bmiColor.withValues(alpha: 0.28)),
-            ),
-            child: Icon(
-              Icons.health_and_safety_rounded,
-              color: bmiColor,
-              size: 31,
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SectionHeader(
+          title: l10n.progressMeasurementsTitle,
+          actionLabel: summary.isEmpty ? null : l10n.commonAdd,
+          onAction: () => _addMeasurement(context),
+        ),
+        if (summary.isEmpty)
+          EmptyState(
+            icon: Icons.straighten_rounded,
+            title: l10n.progressMeasurementsEmptyTitle,
+            message: l10n.progressMeasurementsEmptyBody,
+            actionLabel: l10n.progressAddMeasurement,
+            onAction: () => _addMeasurement(context),
+          )
+        else
+          AppCard(
+            padding: EdgeInsets.zero,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'BMI / VKİ',
-                  style: TextStyle(color: AppColors.textSoft, fontSize: 13),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  progress.bmi.toStringAsFixed(1),
-                  style: TextStyle(
-                    color: bmiColor,
-                    fontSize: 27,
-                    fontWeight: FontWeight.w900,
+                for (final entry in summary.entries)
+                  ListTile(
+                    title: Text(measurementName(l10n, entry.key)),
+                    subtitle: entry.value.$1 == entry.value.$2
+                        ? null
+                        : Text(
+                            l10n.progressMeasurementFrom(_kg(entry.value.$1)),
+                          ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '${_kg(entry.value.$2)} cm',
+                          style: context.text.titleSmall,
+                        ),
+                        if (entry.value.$1 != entry.value.$2) ...[
+                          const SizedBox(width: Gap.sm),
+                          Pill(
+                            label:
+                                '${entry.value.$2 > entry.value.$1 ? '+' : ''}${_kg(entry.value.$2 - entry.value.$1)}',
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  progress.bmiStatus,
-                  style: const TextStyle(
-                    color: AppColors.textSoft,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
               ],
             ),
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              const Text(
-                'Verilen',
-                style: TextStyle(color: AppColors.textSoft, fontSize: 12),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                '-${progress.lostWeight.toStringAsFixed(1)} kg',
-                style: const TextStyle(
-                  color: AppColors.neonGreen,
-                  fontSize: 21,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
+      ],
+    );
+  }
+}
+
+Future<double?> _askNumber(
+  BuildContext context, {
+  required String title,
+  required String label,
+  required String unit,
+  required double min,
+  required double max,
+  double? initial,
+}) {
+  final controller = TextEditingController(
+    text: initial == null ? '' : _kg(initial),
+  );
+  final formKey = GlobalKey<FormState>();
+  final l10n = context.l10n;
+
+  return showDialog<double>(
+    context: context,
+    builder: (context) {
+      void submit() {
+        if (formKey.currentState!.validate()) {
+          Navigator.of(
+            context,
+          ).pop(double.parse(controller.text.replaceAll(',', '.')));
+        }
+      }
+
+      return AlertDialog(
+        title: Text(title),
+        content: Form(
+          key: formKey,
+          child: TextFormField(
+            controller: controller,
+            autofocus: true,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
             ],
+            decoration: InputDecoration(labelText: label, suffixText: unit),
+            validator: (value) {
+              final number = double.tryParse(
+                (value ?? '').replaceAll(',', '.'),
+              );
+              if (number == null || number < min || number > max) {
+                return l10n.progressRangeError(_kg(min), _kg(max), unit);
+              }
+              return null;
+            },
+            onFieldSubmitted: (_) => submit(),
           ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(l10n.commonCancel),
+          ),
+          FilledButton(onPressed: submit, child: Text(l10n.commonSave)),
         ],
-      ),
-    );
-  }
+      );
+    },
+  );
 }
 
-class _WeightChartCard extends StatelessWidget {
-  final BodyProgress progress;
+Future<void> _addWeight(BuildContext context) async {
+  final l10n = context.l10n;
+  final kg = await _askNumber(
+    context,
+    title: l10n.progressAddWeight,
+    label: l10n.progressWeightTitle,
+    unit: 'kg',
+    min: 20,
+    max: 400,
+    initial: BodyProgressStore.progress.value.currentWeight,
+  );
+  if (kg != null) await BodyProgressStore.addWeight(kg);
+}
 
-  const _WeightChartCard({required this.progress});
-
-  @override
-  Widget build(BuildContext context) {
-    final weights = progress.weeklyWeights;
-
-    final minWeight =
-        weights.map((entry) => entry.weight).reduce((a, b) => a < b ? a : b) -
-        1;
-
-    final maxWeight =
-        weights.map((entry) => entry.weight).reduce((a, b) => a > b ? a : b) +
-        1;
-
-    return GlassCard(
+Future<void> _addMeasurement(BuildContext context) async {
+  final l10n = context.l10n;
+  final type = await showModalBottomSheet<MeasurementType>(
+    context: context,
+    builder: (context) => SafeArea(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          const Text(
-            'Haftalık Kilo Grafiği',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            'Haftalara göre kilo değişim trendin',
-            style: TextStyle(color: AppColors.textSoft, fontSize: 13),
-          ),
-          const SizedBox(height: 22),
-          SizedBox(
-            height: 210,
-            child: LineChart(
-              LineChartData(
-                minY: minWeight,
-                maxY: maxWeight,
-                gridData: FlGridData(
-                  show: true,
-                  drawVerticalLine: false,
-                  horizontalInterval: 1,
-                  getDrawingHorizontalLine: (value) {
-                    return FlLine(
-                      color: Colors.white.withValues(alpha: 0.07),
-                      strokeWidth: 1,
-                    );
-                  },
-                ),
-                borderData: FlBorderData(show: false),
-                titlesData: FlTitlesData(
-                  leftTitles: const AxisTitles(
-                    sideTitles: SideTitles(showTitles: false),
-                  ),
-                  rightTitles: const AxisTitles(
-                    sideTitles: SideTitles(showTitles: false),
-                  ),
-                  topTitles: const AxisTitles(
-                    sideTitles: SideTitles(showTitles: false),
-                  ),
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 28,
-                      getTitlesWidget: (value, meta) {
-                        final index = value.toInt();
-
-                        if (index < 0 || index >= weights.length) {
-                          return const SizedBox();
-                        }
-
-                        return Text(
-                          '${index + 1}',
-                          style: const TextStyle(
-                            color: AppColors.textSoft,
-                            fontSize: 12,
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-                lineBarsData: [
-                  LineChartBarData(
-                    spots: List.generate(
-                      weights.length,
-                      (index) =>
-                          FlSpot(index.toDouble(), weights[index].weight),
-                    ),
-                    isCurved: true,
-                    barWidth: 5,
-                    color: AppColors.neonGreen,
-                    shadow: Shadow(
-                      color: AppColors.neonGreen.withValues(alpha: 0.45),
-                      blurRadius: 16,
-                    ),
-                    belowBarData: BarAreaData(
-                      show: true,
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          AppColors.neonGreen.withValues(alpha: 0.28),
-                          AppColors.neonGreen.withValues(alpha: 0.02),
-                        ],
-                      ),
-                    ),
-                    dotData: FlDotData(
-                      show: true,
-                      getDotPainter: (spot, percent, barData, index) {
-                        return FlDotCirclePainter(
-                          radius: 5,
-                          color: AppColors.neonGreen,
-                          strokeWidth: 3,
-                          strokeColor: Colors.white.withValues(alpha: 0.75),
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MeasurementsCard extends StatelessWidget {
-  final BodyProgress progress;
-
-  const _MeasurementsCard({required this.progress});
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Vücut Ölçüleri',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 14),
-          ...progress.measurements.map(
-            (measurement) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _MeasurementRow(measurement: measurement),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MeasurementRow extends StatelessWidget {
-  final BodyMeasurement measurement;
-
-  const _MeasurementRow({required this.measurement});
-
-  @override
-  Widget build(BuildContext context) {
-    final difference = measurement.difference;
-    final isReduced = difference < 0;
-    final color = isReduced ? AppColors.neonGreen : Colors.orangeAccent;
-
-    return Container(
-      padding: const EdgeInsets.all(13),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.045),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.09)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            height: 42,
-            width: 42,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.13),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: color.withValues(alpha: 0.24)),
-            ),
-            child: Icon(
-              isReduced
-                  ? Icons.trending_down_rounded
-                  : Icons.trending_up_rounded,
-              color: color,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
+          Padding(
+            padding: const EdgeInsets.only(bottom: Gap.sm),
             child: Text(
-              measurement.title,
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
+              l10n.progressAddMeasurement,
+              style: context.text.titleMedium,
             ),
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                '${measurement.startValue.toStringAsFixed(0)} → ${measurement.currentValue.toStringAsFixed(0)} ${measurement.unit}',
-                style: const TextStyle(fontWeight: FontWeight.w800),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                '${difference.toStringAsFixed(1)} ${measurement.unit}',
-                style: TextStyle(
-                  color: color,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
-          ),
+          for (final type in MeasurementType.values)
+            ListTile(
+              title: Text(measurementName(l10n, type)),
+              onTap: () => Navigator.of(context).pop(type),
+            ),
         ],
       ),
-    );
-  }
+    ),
+  );
+  if (type == null || !context.mounted) return;
+  final cm = await _askNumber(
+    context,
+    title: measurementName(l10n, type),
+    label: measurementName(l10n, type),
+    unit: 'cm',
+    min: 10,
+    max: 300,
+  );
+  if (cm != null) await BodyProgressStore.addMeasurement(type, cm);
 }
 
-class _ProgressInfoCard extends StatelessWidget {
-  const _ProgressInfoCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return const GlassCard(
-      child: Row(
-        children: [
-          Icon(Icons.info_outline_rounded, color: AppColors.electricBlue),
-          SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              'Bu ekran demo gelişim verileriyle hazırlanmıştır. Backend hazır olduğunda kilo ve vücut ölçümleri kullanıcı hesabına bağlı olarak kaydedilebilir.',
-              style: TextStyle(
-                color: AppColors.textSoft,
-                height: 1.45,
-                fontSize: 13,
-              ),
-            ),
-          ),
-        ],
-      ),
+Future<void> _editProfile(BuildContext context, BodyProgress body) async {
+  final l10n = context.l10n;
+  final height = await _askNumber(
+    context,
+    title: l10n.progressHeight,
+    label: l10n.progressHeight,
+    unit: 'cm',
+    min: 80,
+    max: 250,
+    initial: body.heightCm,
+  );
+  if (!context.mounted) return;
+  final target = await _askNumber(
+    context,
+    title: l10n.progressTargetWeight,
+    label: l10n.progressTargetWeight,
+    unit: 'kg',
+    min: 20,
+    max: 400,
+    initial: body.targetWeightKg,
+  );
+  if (height != null || target != null) {
+    await BodyProgressStore.setProfile(
+      heightCm: height,
+      targetWeightKg: target,
     );
   }
 }

@@ -1,69 +1,150 @@
-class WeightEntry {
-  final String weekLabel;
-  final double weight;
+/// Body measurement types the user can track (all in cm).
+enum MeasurementType { waist, hip, chest, arm, thigh }
 
-  const WeightEntry({required this.weekLabel, required this.weight});
+class WeightEntry {
+  final DateTime date;
+  final double kg;
+
+  const WeightEntry({required this.date, required this.kg});
+
+  Map<String, Object> toJson() => {'date': date.toIso8601String(), 'kg': kg};
+
+  static WeightEntry? fromJson(Object? json) {
+    if (json is! Map) return null;
+    final date = DateTime.tryParse('${json['date']}');
+    final kg = json['kg'];
+    if (date == null || kg is! num) return null;
+    return WeightEntry(date: date, kg: kg.toDouble());
+  }
 }
 
-class BodyMeasurement {
-  final String title;
-  final double startValue;
-  final double currentValue;
-  final String unit;
+class MeasurementEntry {
+  final DateTime date;
+  final MeasurementType type;
+  final double cm;
 
-  const BodyMeasurement({
-    required this.title,
-    required this.startValue,
-    required this.currentValue,
-    required this.unit,
+  const MeasurementEntry({
+    required this.date,
+    required this.type,
+    required this.cm,
   });
 
-  double get difference => currentValue - startValue;
+  Map<String, Object> toJson() => {
+    'date': date.toIso8601String(),
+    'type': type.name,
+    'cm': cm,
+  };
+
+  static MeasurementEntry? fromJson(Object? json) {
+    if (json is! Map) return null;
+    final date = DateTime.tryParse('${json['date']}');
+    final type = MeasurementType.values
+        .where((t) => t.name == json['type'])
+        .firstOrNull;
+    final cm = json['cm'];
+    if (date == null || type == null || cm is! num) return null;
+    return MeasurementEntry(date: date, type: type, cm: cm.toDouble());
+  }
 }
 
+/// Everything the user entered about their body; all fields are optional.
 class BodyProgress {
-  final double startWeight;
-  final double currentWeight;
-  final double targetWeight;
-  final double heightCm;
-  final List<WeightEntry> weeklyWeights;
-  final List<BodyMeasurement> measurements;
+  final double? heightCm;
+  final double? targetWeightKg;
+
+  /// Sorted oldest first.
+  final List<WeightEntry> weights;
+  final List<MeasurementEntry> measurements;
 
   const BodyProgress({
-    required this.startWeight,
-    required this.currentWeight,
-    required this.targetWeight,
-    required this.heightCm,
-    required this.weeklyWeights,
-    required this.measurements,
+    this.heightCm,
+    this.targetWeightKg,
+    this.weights = const [],
+    this.measurements = const [],
   });
 
-  double get lostWeight => startWeight - currentWeight;
+  static const empty = BodyProgress();
 
-  double get remainingWeight => currentWeight - targetWeight;
+  bool get hasData => weights.isNotEmpty || measurements.isNotEmpty;
 
-  double get progressRatio {
-    final totalTarget = startWeight - targetWeight;
+  double? get startWeight => weights.isEmpty ? null : weights.first.kg;
+  double? get currentWeight => weights.isEmpty ? null : weights.last.kg;
 
-    if (totalTarget <= 0) return 0;
-
-    final ratio = lostWeight / totalTarget;
-
-    if (ratio < 0) return 0;
-    if (ratio > 1) return 1;
-
-    return ratio;
+  double? get weightChange {
+    final start = startWeight;
+    final current = currentWeight;
+    return start == null || current == null ? null : current - start;
   }
 
-  double get bmi {
-    final heightMeter = heightCm / 100;
-    return currentWeight / (heightMeter * heightMeter);
+  /// 0..1 progress from the first weigh-in toward the target.
+  double? get goalProgress {
+    final start = startWeight;
+    final current = currentWeight;
+    final target = targetWeightKg;
+    if (start == null || current == null || target == null) return null;
+    final total = target - start;
+    if (total.abs() < 0.05) return 1;
+    return ((current - start) / total).clamp(0.0, 1.0);
   }
 
-  String get bmiStatus {
-    if (bmi < 18.5) return 'Düşük kilo';
-    if (bmi < 25) return 'Normal';
-    if (bmi < 30) return 'Fazla kilo';
-    return 'Obezite riski';
+  double? get bmi {
+    final height = heightCm;
+    final weight = currentWeight;
+    if (height == null || height <= 0 || weight == null) return null;
+    final meters = height / 100;
+    return weight / (meters * meters);
+  }
+
+  /// First and latest value for each measurement type that has entries.
+  Map<MeasurementType, (double first, double latest)> get measurementSummary {
+    final result = <MeasurementType, (double, double)>{};
+    for (final type in MeasurementType.values) {
+      final entries = measurements.where((m) => m.type == type).toList()
+        ..sort((a, b) => a.date.compareTo(b.date));
+      if (entries.isNotEmpty) {
+        result[type] = (entries.first.cm, entries.last.cm);
+      }
+    }
+    return result;
+  }
+
+  BodyProgress copyWith({
+    double? heightCm,
+    double? targetWeightKg,
+    List<WeightEntry>? weights,
+    List<MeasurementEntry>? measurements,
+  }) {
+    return BodyProgress(
+      heightCm: heightCm ?? this.heightCm,
+      targetWeightKg: targetWeightKg ?? this.targetWeightKg,
+      weights: weights ?? this.weights,
+      measurements: measurements ?? this.measurements,
+    );
+  }
+
+  Map<String, Object?> toJson() => {
+    'heightCm': heightCm,
+    'targetWeightKg': targetWeightKg,
+    'weights': weights.map((w) => w.toJson()).toList(),
+    'measurements': measurements.map((m) => m.toJson()).toList(),
+  };
+
+  static BodyProgress fromJson(Object? json) {
+    if (json is! Map) return empty;
+    double? number(Object? value) => value is num ? value.toDouble() : null;
+    final weights = [
+      if (json['weights'] is List)
+        for (final item in json['weights'] as List) ?WeightEntry.fromJson(item),
+    ]..sort((a, b) => a.date.compareTo(b.date));
+    return BodyProgress(
+      heightCm: number(json['heightCm']),
+      targetWeightKg: number(json['targetWeightKg']),
+      weights: weights,
+      measurements: [
+        if (json['measurements'] is List)
+          for (final item in json['measurements'] as List)
+            ?MeasurementEntry.fromJson(item),
+      ],
+    );
   }
 }

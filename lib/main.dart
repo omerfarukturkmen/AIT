@@ -1,18 +1,11 @@
-import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 
 import 'app.dart';
-
-List<CameraDescription> appCameras = [];
+import 'core/state/app_settings_store.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  try {
-    appCameras = await availableCameras();
-  } catch (_) {
-    appCameras = [];
-  }
-
+  // Theme and language must be known before the first frame.
+  await AppSettingsStore.load();
   runApp(const MyApp());
 }

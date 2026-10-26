@@ -1,5 +1,5 @@
 name: flutter_application_1
-description: "A new Flutter project."
+description: "AIT: AI destekli egzersiz form analizi."
 publish_to: 'none'
 
 version: 1.0.0+1
@@ -10,6 +10,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  intl: any
   fl_chart: ^0.69.0
   cupertino_icons: ^1.0.8
   image_picker: ^1.0.7
@@ -20,6 +23,8 @@ dependencies:
   shared_preferences: ^2.5.5
   file_picker: ^11.0.2
   flutter_secure_storage: ^10.3.4
+  google_sign_in: ^7.2.0
+  sign_in_with_apple: ^7.0.1
 
 dev_dependencies:
   flutter_test:
@@ -29,3 +34,4 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  generate: true

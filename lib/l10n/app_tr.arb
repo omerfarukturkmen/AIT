@@ -1,0 +1,597 @@
+{
+  "@@locale": "tr",
+  "appName": "AIT",
+  "appTagline": "Yapay zekâ destekli form analizi",
+  "commonCancel": "Vazgeç",
+  "commonClose": "Kapat",
+  "commonContinue": "Devam et",
+  "commonSave": "Kaydet",
+  "commonDelete": "Sil",
+  "commonRetry": "Tekrar dene",
+  "commonOk": "Tamam",
+  "commonSeeAll": "Tümünü gör",
+  "commonComingSoon": "Yakında",
+  "commonBack": "Geri",
+  "commonDone": "Bitti",
+  "commonEdit": "Düzenle",
+  "commonAdd": "Ekle",
+  "commonNotSet": "Belirtilmedi",
+  "errorNetwork": "Sunucuya ulaşılamadı. İnternet bağlantını kontrol et.",
+  "errorTimeout": "Sunucu zamanında yanıt vermedi. Lütfen tekrar dene.",
+  "errorSessionExpired": "Oturumun sona erdi. Lütfen tekrar giriş yap.",
+  "errorInvalidCredentials": "E-posta veya şifre hatalı.",
+  "errorEmailTaken": "Bu e-posta adresiyle kayıtlı bir hesap zaten var.",
+  "errorInvalidInput": "Girilen bilgiler geçersiz. Lütfen kontrol et.",
+  "errorInvalidCode": "Kod geçersiz veya süresi dolmuş.",
+  "errorTooLarge": "Video dosyası çok büyük.",
+  "errorUnsupportedMedia": "Dosya geçerli bir video değil. MP4, MOV veya AVI yükle.",
+  "errorRateLimited": "Çok fazla istek gönderildi. Lütfen biraz sonra tekrar dene.",
+  "errorNotConfigured": "Bu özellik henüz yapılandırılmadı.",
+  "errorUnavailable": "Hizmet şu anda kullanılamıyor. Lütfen daha sonra tekrar dene.",
+  "errorAnalysisFailed": "Video analiz edilemedi. Tüm vücudunun göründüğü net bir video dene.",
+  "errorServer": "Sunucuda bir hata oluştu. Lütfen tekrar dene.",
+  "errorUnknown": "Bir şeyler ters gitti. Lütfen tekrar dene.",
+  "exerciseSquat": "Squat",
+  "exercisePushUp": "Şınav",
+  "exercisePlank": "Plank",
+  "exerciseLunge": "Lunge",
+  "exerciseDeadlift": "Deadlift",
+  "exerciseShoulderPress": "Omuz press",
+  "exerciseSquatDescription": "Alt vücut kuvvetini geliştiren temel bir bileşik hareket. Kalça, diz ve ayak bileği kontrolü doğru form için belirleyicidir.",
+  "exercisePushUpDescription": "Göğüs, omuz ve kol kuvvetini geliştirirken gövde stabilitesini çalıştıran fonksiyonel bir hareket.",
+  "exercisePlankDescription": "Core dayanıklılığını ve duruş stabilitesini geliştiren izometrik bir egzersiz.",
+  "exerciseLungeDescription": "Tek bacak kuvveti, denge ve koordinasyon geliştiren bir alt vücut hareketi.",
+  "exerciseDeadliftDescription": "Arka zincir kaslarını güçlendiren, kalçadan menteşe hareketine dayanan temel bir kuvvet egzersizi.",
+  "exerciseShoulderPressDescription": "Omuz ve kol kuvvetini geliştiren, gövde kontrolü gerektiren bir itiş hareketi.",
+  "muscleCore": "Core kasları",
+  "muscleCalves": "Baldır kasları",
+  "squatMistake1": "Dizlerin içe çökmesi",
+  "squatMistake2": "Gövdenin fazla öne eğilmesi",
+  "squatMistake3": "Topukların yerden kalkması",
+  "squatMistake4": "Yetersiz derinlik",
+  "squatTip1": "Ayaklarını omuz genişliğinde aç.",
+  "squatTip2": "Dizlerini ayak parmaklarınla aynı hizada tut.",
+  "squatTip3": "İnerken ve kalkarken tempoyu kontrollü tut.",
+  "pushUpMistake1": "Kalçanın aşağı düşmesi",
+  "pushUpMistake2": "Dirseklerin fazla dışa açılması",
+  "pushUpMistake3": "Boynun öne uzatılması",
+  "pushUpMistake4": "Hareketin yarım bırakılması",
+  "pushUpTip1": "Omuz, kalça ve ayaklarını tek çizgide tut.",
+  "pushUpTip2": "Dirseklerini gövdene yaklaşık 45° açıyla bük.",
+  "pushUpTip3": "Göğsünü yere yakın indir, kolların tam açılana kadar it.",
+  "plankMistake1": "Belin aşağı çökmesi",
+  "plankMistake2": "Kalçanın fazla yukarı kalkması",
+  "plankMistake3": "Boynun nötr tutulmaması",
+  "plankTip1": "Dirseklerini omuzlarının altında tut.",
+  "plankTip2": "Karın ve kalça kaslarını sık.",
+  "plankTip3": "Nefesini tutma, düzenli nefes al.",
+  "lungeMistake1": "Ön dizin ayak ucunu çok geçmesi",
+  "lungeMistake2": "Gövdenin öne düşmesi",
+  "lungeMistake3": "Dengenin kaybedilmesi",
+  "lungeTip1": "Adımını yeterince uzun at.",
+  "lungeTip2": "Gövdeni dik tut.",
+  "lungeTip3": "Arka dizini yere yakın indir.",
+  "deadliftMistake1": "Sırtın yuvarlanması",
+  "deadliftMistake2": "Barın vücuttan uzaklaşması",
+  "deadliftMistake3": "Hareketi bel ile başlatmak",
+  "deadliftTip1": "Hareketi kalçadan menteşe yaparak başlat.",
+  "deadliftTip2": "Barı bacaklarına yakın tut.",
+  "deadliftTip3": "Sırtını nötr ve sabit tut.",
+  "shoulderPressMistake1": "Belin aşırı çukurlaşması",
+  "shoulderPressMistake2": "Dirseklerin fazla dışa açılması",
+  "shoulderPressMistake3": "Hareketin yarım yapılması",
+  "shoulderPressTip1": "Karın kaslarını sıkarak gövdeni sabitle.",
+  "shoulderPressTip2": "Ağırlığı başının üzerine düz bir hatta it.",
+  "shoulderPressTip3": "İnişi kontrollü yap.",
+  "issueInsufficientDepth": "Yeterince derine inmedin.",
+  "issueInsufficientDepthFix": "Kalçanı dizlerinle aynı seviyeye kadar indirmeyi hedefle.",
+  "issueKneeAngle": "Diz açın yeterli seviyeye ulaşmadı.",
+  "issueKneeAngleFix": "Kalçanı geriye iterek dizlerini daha fazla bük.",
+  "issueTooDeep": "Çok derine indin ya da alt noktada dengesizleştin.",
+  "issueTooDeepFix": "Alt noktada kontrolü kaybetmeden durabileceğin derinlikte kal.",
+  "issueTooFast": "Hareketi çok hızlı yaptın.",
+  "issueTooFastFix": "İnişi yaklaşık 2 saniyede, kalkışı kontrollü yap.",
+  "issueIncompleteRep": "Bazı tekrarları tamamlamadın.",
+  "issueIncompleteRepFix": "Her tekrarda tam inip tam kalk.",
+  "issueTorsoLean": "Gövden fazla öne eğildi.",
+  "issueTorsoLeanFix": "Göğsünü açık tut ve bakışını ileriye ver.",
+  "issueHipHinge": "İnerken kalçadan yeterince bükülmedin.",
+  "issueHipHingeFix": "İnişe kalçanı geriye iterek başla.",
+  "issueHipsSagging": "Kalçan aşağı düştü.",
+  "issueHipsSaggingFix": "Karın ve kalça kaslarını sıkarak vücudunu düz tut.",
+  "issueHipsTooHigh": "Kalçan fazla yukarıda kaldı.",
+  "issueHipsTooHighFix": "Kalçanı omuz ve topukların hizasına indir.",
+  "issueBackBent": "Sırtın bükülmüş görünüyor.",
+  "issueBackBentFix": "Başından topuklarına kadar düz bir çizgi oluştur.",
+  "issueNotLowEnough": "Göğsün yeterince yere yaklaşmadı.",
+  "issueNotLowEnoughFix": "Dirseklerin yaklaşık 90° bükülene kadar in.",
+  "issueIncompleteUp": "Kolların tam açılmadı.",
+  "issueIncompleteUpFix": "Her tekrarın sonunda kollarını tamamen aç.",
+  "issueElbowsFlared": "Dirseklerin fazla dışa açıldı.",
+  "issueElbowsFlaredFix": "Dirseklerini gövdene yaklaşık 45° açıyla tut.",
+  "issueShoulders": "Omuz hizan bozuldu.",
+  "issueShouldersFix": "Ellerini omuzlarının hemen altına yerleştir.",
+  "issueGeneric": "Formunda düzeltilmesi gereken bir nokta var.",
+  "issueGenericFix": "Hareketi yavaş ve kontrollü tekrarla.",
+  "issueNoneTitle": "Belirgin bir form hatası bulunmadı.",
+  "issueNoneMessage": "Aynı kontrolü koruyarak tekrar sayını kademeli artırabilirsin.",
+  "programSetsReps": "{sets} set × {reps} tekrar",
+  "@programSetsReps": {
+    "placeholders": {
+      "sets": {
+        "type": "int"
+      },
+      "reps": {
+        "type": "int"
+      }
+    }
+  },
+  "programSetsSeconds": "{sets} set × {seconds} sn",
+  "@programSetsSeconds": {
+    "placeholders": {
+      "sets": {
+        "type": "int"
+      },
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "focusLowerBody": "Alt vücut",
+  "focusUpperBody": "Üst vücut",
+  "focusRecovery": "Toparlanma",
+  "focusFullBody": "Tüm vücut",
+  "focusPosterior": "Arka zincir",
+  "focusCoreMobility": "Core ve mobilite",
+  "focusRest": "Dinlenme",
+  "noteKneesOverToes": "Diz ve ayak hizasını koru.",
+  "noteTorsoUpright": "Gövdeni dik tut.",
+  "noteCoreBraced": "Core bölgeni aktif tut.",
+  "noteHipsShouldersLine": "Kalça ve omuz hizasını koru.",
+  "noteNoLowerBackArch": "Belini fazla çukurlaştırma.",
+  "noteControlledDescent": "İnişi kontrollü yap.",
+  "noteCoreStability": "Gövde stabilitesini koru.",
+  "noteNoSag": "Belinin çökmesine izin verme.",
+  "noteNeutralBack": "Sırtını nötr tut.",
+  "noteBalance": "Dengene odaklan.",
+  "noteBreathing": "Nefesini düzenli tut.",
+  "noteMobility": "Hareket açıklığına odaklan.",
+  "onboardingSkip": "Atla",
+  "onboardingStart": "Başla",
+  "onboardingCaptureTitle": "Egzersizini kaydet",
+  "onboardingCaptureBody": "Kamerayla kaydet ya da galeriden bir video seç. Tüm vücudunun göründüğü kısa bir video yeterli.",
+  "onboardingAnalyzeTitle": "Formunu değerlendir",
+  "onboardingAnalyzeBody": "Yapay zekâ tekrarlarını sayar, form puanını hesaplar ve düzeltmen gereken noktaları gösterir.",
+  "onboardingProgressTitle": "Gelişimini takip et",
+  "onboardingProgressBody": "Analizlerin hesabına kaydedilir. Puanının, kilonun ve ölçülerinin zaman içindeki değişimini gör.",
+  "commonPleaseWait": "Lütfen bekle…",
+  "validationNameRequired": "Ad soyad gerekli.",
+  "validationNameFull": "Lütfen adını ve soyadını gir.",
+  "validationEmailRequired": "E-posta adresi gerekli.",
+  "validationEmailInvalid": "Geçerli bir e-posta adresi gir (ör. ad@ornek.com).",
+  "validationPasswordRequired": "Şifre gerekli.",
+  "validationPasswordMin": "Şifre en az {min} karakter olmalı.",
+  "@validationPasswordMin": {
+    "placeholders": {
+      "min": {
+        "type": "int"
+      }
+    }
+  },
+  "validationPasswordMax": "Şifre en fazla {max} karakter olabilir.",
+  "@validationPasswordMax": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "validationPasswordLetterDigit": "Şifre en az bir harf ve bir rakam içermeli.",
+  "validationConfirmRequired": "Şifreni tekrar gir.",
+  "validationPasswordsMismatch": "Şifreler eşleşmiyor.",
+  "validationCode": "6 haneli kodu gir.",
+  "authShowPassword": "Şifreyi göster",
+  "authHidePassword": "Şifreyi gizle",
+  "authGoogleContinue": "Google ile devam et",
+  "authGoogleSignUp": "Google ile kayıt ol",
+  "authAppleContinue": "Apple ile devam et",
+  "authAppleSignUp": "Apple ile kayıt ol",
+  "authOr": "veya",
+  "authWelcomeBack": "Tekrar hoş geldin, {name}!",
+  "@authWelcomeBack": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "authAccountCreated": "Hesabın oluşturuldu. Hoş geldin, {name}!",
+  "@authAccountCreated": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "authEmail": "E-posta adresi",
+  "authEmailHint": "ad@ornek.com",
+  "authPassword": "Şifre",
+  "authConfirmPassword": "Şifre tekrarı",
+  "authFullName": "Ad soyad",
+  "authFullNameHint": "Ayşe Yılmaz",
+  "authRememberMe": "Beni hatırla",
+  "authForgotPassword": "Şifremi unuttum",
+  "authSignIn": "Giriş yap",
+  "authSigningIn": "Giriş yapılıyor…",
+  "authSignUp": "Kayıt ol",
+  "authCreateAccount": "Hesap oluştur",
+  "authCreatingAccount": "Hesap oluşturuluyor…",
+  "authNoAccount": "Hesabın yok mu?",
+  "authHaveAccount": "Zaten hesabın var mı?",
+  "authTermsPrefix": "",
+  "authTermsMiddle": "'nı ve ",
+  "authTermsSuffix": "'nı okudum, kabul ediyorum.",
+  "authTermsRequired": "Devam etmek için koşulları kabul etmelisin.",
+  "authSocialNotConfigured": "{provider} ile giriş bu cihazda henüz kullanılamıyor. Şimdilik e-posta ve şifre ile devam edebilirsin.",
+  "@authSocialNotConfigured": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "authLoginTitle": "Tekrar hoş geldin",
+  "authLoginSubtitle": "Antrenmanlarına kaldığın yerden devam etmek için giriş yap.",
+  "authRegisterTitle": "Hesabını oluştur",
+  "authRegisterSubtitle": "Analizlerin hesabına kaydedilir; ilerlemeni her cihazdan takip edebilirsin.",
+  "authHeroTitle": "Her tekrarda\ndaha doğru form.",
+  "authHeroBody": "Videonu yükle, yapay zekâ tekrarlarını saysın ve formunu değerlendirsin.",
+  "authFeatureCaptureTitle": "Kaydet veya yükle",
+  "authFeatureCaptureBody": "Kamerayla kaydet ya da galeriden video seç.",
+  "authFeatureFeedbackTitle": "Net geri bildirim",
+  "authFeatureFeedbackBody": "Form puanı, tekrar sayısı ve düzeltme önerileri.",
+  "authFeatureProgressTitle": "Gelişim takibi",
+  "authFeatureProgressBody": "Puanının ve ölçülerinin zaman içindeki değişimi.",
+  "passwordRuleLength": "En az {min} karakter",
+  "@passwordRuleLength": {
+    "placeholders": {
+      "min": {
+        "type": "int"
+      }
+    }
+  },
+  "passwordRuleLetter": "Bir harf",
+  "passwordRuleDigit": "Bir rakam",
+  "passwordRuleMet": "karşılandı",
+  "passwordRuleUnmet": "karşılanmadı",
+  "resetTitle": "Şifre sıfırlama",
+  "resetIntro": "Hesabının e-posta adresini gir; sana 6 haneli bir doğrulama kodu gönderelim.",
+  "resetCodeSentBody": "{email} adresiyle kayıtlı bir hesap varsa kod gönderildi. Kodu ve yeni şifreni gir.",
+  "@resetCodeSentBody": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "resetSendCode": "Kod gönder",
+  "resetCode": "Doğrulama kodu",
+  "resetNewPassword": "Yeni şifre",
+  "resetSetPassword": "Şifreyi değiştir",
+  "resetResend": "Kodu tekrar gönder",
+  "resetResendIn": "{seconds} sn sonra tekrar gönderebilirsin",
+  "@resetResendIn": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "resetSuccess": "Şifren değiştirildi. Yeni şifrenle giriş yapabilirsin.",
+  "verifyTitle": "E-posta adresini doğrula",
+  "verifyBody": "{email} adresine gönderdiğimiz 6 haneli kodu gir.",
+  "@verifyBody": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "verifyAction": "Doğrula",
+  "verifyResend": "Yeni kod gönder",
+  "verifyCodeSent": "Yeni kod e-posta adresine gönderildi.",
+  "verifySuccess": "E-posta adresin doğrulandı.",
+  "legalTermsTitle": "Kullanım Koşulları",
+  "legalPrivacyTitle": "Gizlilik Politikası",
+  "navHome": "Ana sayfa",
+  "navProgram": "Program",
+  "navProgress": "Gelişim",
+  "navHistory": "Geçmiş",
+  "navProfile": "Profil",
+  "unitSeconds": "{seconds} sn",
+  "@unitSeconds": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "recordTitle": "{exercise} kaydı",
+  "@recordTitle": {
+    "placeholders": {
+      "exercise": {
+        "type": "String"
+      }
+    }
+  },
+  "recordSwitchCamera": "Kamerayı değiştir",
+  "recordFramingHint": "Telefonu sabitle, 2-3 metre geri çekil ve tüm vücudunun çerçeveye girdiğinden emin ol.",
+  "recordGetReady": "Hazırlan…",
+  "recordRecordingHint": "Hareketi kontrollü yap. Bitirdiğinde durdur; en fazla 60 saniye kaydedilir.",
+  "recordGo": "Başla",
+  "recordStart": "Kaydı başlat",
+  "recordStop": "Kaydı durdur",
+  "recordCameraError": "Kameraya erişilemedi. Kamera iznini kontrol edip tekrar dene ya da galeriden video yükle.",
+  "progressTitle": "Analiz",
+  "progressUploading": "Video yükleniyor",
+  "progressQueued": "Analiz sırasında",
+  "progressProcessing": "Hareketin analiz ediliyor",
+  "progressVideoSize": "{size} MB video",
+  "@progressVideoSize": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "progressLeaveHint": "Bu ekrandan ayrılabilirsin; analiz bitince sonucu Geçmiş'te görürsün.",
+  "progressFailedTitle": "Analiz tamamlanamadı",
+  "voiceResultSummary": "Analiz tamamlandı. Puanın {score}. {reps} tekrar. {issue}",
+  "@voiceResultSummary": {
+    "placeholders": {
+      "score": {
+        "type": "int"
+      },
+      "reps": {
+        "type": "int"
+      },
+      "issue": {
+        "type": "String"
+      }
+    }
+  },
+  "scoreExcellent": "Mükemmel",
+  "scoreGood": "İyi",
+  "scoreFair": "Geliştirilebilir",
+  "scoreNeedsWork": "Çalışılmalı",
+  "resultScoreCaption": "form puanı",
+  "resultReps": "Tekrar",
+  "resultDuration": "Süre",
+  "resultConfidence": "Algılama",
+  "resultValidRepsNote": "{total} tekrarın {valid} tanesi doğru formda tamamlandı.",
+  "@resultValidRepsNote": {
+    "placeholders": {
+      "valid": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "resultSummaryClean": "Belirgin bir form hatası bulunmadı. Harika iş!",
+  "resultSummaryIssues": "{count, plural, =1{Düzeltmen gereken 1 nokta var.} other{Düzeltmen gereken {count} nokta var.}}",
+  "@resultSummaryIssues": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "resultDepthTitle": "Derinlik",
+  "resultAvgKneeAngle": "Ortalama en düşük diz açısı",
+  "resultAvgKneeAngleHelp": "Düşük değer daha derin squat demektir; 90° civarı yaygın bir hedeftir.",
+  "resultRangeOfMotion": "Hareket açıklığı",
+  "resultRangeOfMotionHelp": "Dizinin en açık ve en kapalı hali arasındaki fark.",
+  "resultIssuesTitle": "Düzeltilecekler",
+  "resultTipsTitle": "İpuçları",
+  "resultNewAnalysis": "Yeni analiz",
+  "resultDisclaimer": "Bu değerlendirme yapay zekâ tarafından üretilir ve tıbbi tavsiye değildir. Ağrı hissedersen egzersizi bırak.",
+  "homeTitle": "Ana sayfa",
+  "homeGreeting": "Merhaba, {name}",
+  "@homeGreeting": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "homeVerifyEmail": "E-posta adresini doğrula; şifreni unutursan hesabına bu adresle erişeceksin.",
+  "homeNewAnalysis": "Yeni analiz",
+  "homeNewAnalysisBody": "Hareketi seç, sonra videonu yükle ya da kamerayla kaydet.",
+  "homeUploadVideo": "Video yükle",
+  "homeRecordVideo": "Kamerayla kaydet",
+  "homeCaptureTip": "En iyi sonuç için tüm vücudun görünsün ve ortam aydınlık olsun.",
+  "homeSummary": "Özet",
+  "homeThisWeek": "Bu hafta",
+  "homeAverageScore": "Ortalama",
+  "homeBestScore": "En iyi",
+  "homeLatest": "Son analiz",
+  "homeEmptyTitle": "Henüz analiz yok",
+  "homeEmptyBody": "İlk videonu analiz ettiğinde sonuçların burada görünecek.",
+  "homeToday": "Bugünün programı",
+  "homeLibrary": "Egzersizler",
+  "homeAiAnalysis": "AI analizi",
+  "historyTitle": "Geçmiş",
+  "historyCount": "{count, plural, =1{1 analiz} other{{count} analiz}}",
+  "@historyCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "historyReps": "{count, plural, =1{1 tekrar} other{{count} tekrar}}",
+  "@historyReps": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "historyAll": "Tümü",
+  "historyErrorTitle": "Geçmiş yüklenemedi",
+  "historyNoMatch": "Bu harekete ait analiz yok",
+  "historyNoMatchBody": "Başka bir filtre seç.",
+  "detailFavorite": "Favorilere ekle",
+  "detailUnfavorite": "Favorilerden çıkar",
+  "detailComingSoonBody": "Bu hareket için yapay zekâ analizi henüz hazır değil. Şimdilik squat ve şınav analiz edilebiliyor.",
+  "detailMuscles": "Çalışan kaslar",
+  "detailMistakes": "Sık yapılan hatalar",
+  "progressPageTitle": "Gelişim",
+  "progressPageSubtitle": "Form puanını, kilonu ve ölçülerini takip et.",
+  "progressLocalNote": "Kilo ve ölçü bilgileri yalnızca bu cihazda saklanır.",
+  "progressScoreTitle": "Form puanı",
+  "progressScoreEmptyTitle": "Trend için en az 2 analiz gerekli",
+  "progressScoreEmptyBody": "Birkaç analiz yaptıkça form puanının nasıl değiştiğini burada göreceksin.",
+  "progressWeightTitle": "Kilo",
+  "progressGoalAndHeight": "Hedef ve boy",
+  "progressWeightEmptyTitle": "Kilonu kaydet",
+  "progressWeightEmptyBody": "Düzenli tartılıp kaydettikçe değişimini grafikte görebilirsin.",
+  "progressAddWeight": "Kilo ekle",
+  "progressGoal": "Hedef: {target} kg",
+  "@progressGoal": {
+    "placeholders": {
+      "target": {
+        "type": "String"
+      }
+    }
+  },
+  "progressHeight": "Boy",
+  "progressTargetWeight": "Hedef kilo",
+  "progressRangeError": "{min} ile {max} {unit} arasında bir değer gir.",
+  "@progressRangeError": {
+    "placeholders": {
+      "min": {
+        "type": "String"
+      },
+      "max": {
+        "type": "String"
+      },
+      "unit": {
+        "type": "String"
+      }
+    }
+  },
+  "progressMeasurementsTitle": "Vücut ölçüleri",
+  "progressMeasurementsEmptyTitle": "Ölçü eklenmedi",
+  "progressMeasurementsEmptyBody": "Bel, kalça gibi ölçülerini ekleyerek değişimi takip edebilirsin.",
+  "progressAddMeasurement": "Ölçü ekle",
+  "progressMeasurementFrom": "Başlangıç: {value} cm",
+  "@progressMeasurementFrom": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "measureWaist": "Bel",
+  "measureHip": "Kalça",
+  "measureChest": "Göğüs",
+  "measureArm": "Kol",
+  "measureThigh": "Bacak",
+  "bmiTitle": "Vücut kitle indeksi",
+  "bmiUnder": "Zayıf",
+  "bmiNormal": "Normal",
+  "bmiOver": "Fazla kilolu",
+  "bmiObese": "Obez",
+  "bmiNote": "VKİ kas kütlesini dikkate almaz.",
+  "programTitle": "Program",
+  "programSubtitle": "Haftalık başlangıç programın. Tamamladığın günleri işaretle.",
+  "programThisWeek": "Bu hafta",
+  "programDaysDone": "{done}/{total} gün",
+  "@programDaysDone": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "programToday": "Bugün",
+  "programMarkDone": "Günü tamamlandı olarak işaretle",
+  "programAnalyze": "Kaydet ve analiz et",
+  "programRestDayBody": "Dinlenme günü. Hafif yürüyüş veya esneme yapabilirsin.",
+  "profileTitle": "Profil",
+  "profileAnalyses": "Analiz",
+  "profileAchievements": "Başarılar",
+  "profileFavorites": "Favori egzersizler",
+  "profileVerified": "Doğrulandı",
+  "profileNotVerified": "Doğrulanmadı",
+  "achievementUnlocked": "kazanıldı",
+  "achievementLocked": "kilitli",
+  "achievementFirstTitle": "İlk adım",
+  "achievementFirstBody": "İlk analizini tamamla.",
+  "achievementTenTitle": "Kararlı",
+  "achievementTenBody": "10 analiz tamamla ({count}/10).",
+  "@achievementTenBody": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "achievementNinetyTitle": "Kusursuza yakın",
+  "achievementNinetyBody": "Bir analizde 90 veya üzeri puan al.",
+  "achievementCleanTitle": "Temiz form",
+  "achievementCleanBody": "Hiç form hatası olmadan bir set tamamla.",
+  "achievementBothTitle": "Çok yönlü",
+  "achievementBothBody": "Hem squat hem şınav analiz et.",
+  "achievementStreakTitle": "Haftalık seri",
+  "achievementStreakBody": "Bir hafta içinde 3 farklı gün analiz yap ({count}/3).",
+  "@achievementStreakBody": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsTitle": "Ayarlar",
+  "settingsAppearance": "Görünüm",
+  "settingsThemeSystem": "Sistem",
+  "settingsThemeLight": "Açık",
+  "settingsThemeDark": "Koyu",
+  "settingsLanguage": "Dil",
+  "settingsVoice": "Ses",
+  "settingsVoiceTitle": "Sesli yönlendirme",
+  "settingsVoiceBody": "Kayıt geri sayımını ve analiz sonucunu sesli okur.",
+  "settingsAccount": "Hesap",
+  "settingsSignOut": "Çıkış yap",
+  "settingsSignOutBody": "Bu cihazda oturumun kapatılacak.",
+  "settingsSignOutAll": "Tüm cihazlardan çıkış yap",
+  "settingsSignOutAllBody": "Hesabının açık olduğu tüm cihazlarda oturum kapatılacak.",
+  "settingsDeleteTitle": "Hesabımı sil",
+  "settingsDeleteBody": "Hesabın, yüklediğin tüm videolar ve analiz sonuçların kalıcı olarak silinecek. Bu işlem geri alınamaz.",
+  "settingsDeleteAction": "Kalıcı olarak sil",
+  "settingsDeleted": "Hesabın ve tüm verilerin silindi.",
+  "settingsLegal": "Yasal",
+  "settingsVersion": "AIT sürüm {version}",
+  "@settingsVersion": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "legalKvkkTitle": "KVKK Aydınlatma Metni",
+  "legalLastUpdated": "Son güncelleme: {date}",
+  "@legalLastUpdated": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  }
+}

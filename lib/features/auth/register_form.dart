@@ -1,19 +1,22 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
+import '../../app.dart';
+import '../../core/app_exception.dart';
 import '../../core/services/auth_service.dart';
+import '../../core/services/social_sign_in.dart';
 import '../../core/state/auth_store.dart';
+import '../../core/theme/app_theme.dart';
 import '../../models/auth_session_model.dart';
+import '../legal/legal_page.dart';
 import 'auth_validators.dart';
 import 'widgets/auth_feedback.dart';
-import 'widgets/auth_palette.dart';
-import 'widgets/auth_submit_button.dart';
 import 'widgets/auth_text_field.dart';
 import 'widgets/social_auth_buttons.dart';
 
 class RegisterForm extends StatefulWidget {
   final void Function(AuthSession session, String message) onAuthenticated;
-  final ValueChanged<SocialAuthProvider> onSocialPressed;
+  final ValueChanged<SocialProvider> onSocialPressed;
   final VoidCallback onSwitchToLogin;
 
   const RegisterForm({
@@ -47,9 +50,9 @@ class _RegisterFormState extends State<RegisterForm> {
   void initState() {
     super.initState();
     _termsRecognizer = TapGestureRecognizer()
-      ..onTap = () => _showPolicy('Kullanım Koşulları');
+      ..onTap = () => LegalPage.open(context, LegalDocument.terms);
     _privacyRecognizer = TapGestureRecognizer()
-      ..onTap = () => _showPolicy('Gizlilik Politikası');
+      ..onTap = () => LegalPage.open(context, LegalDocument.privacy);
   }
 
   @override
@@ -75,6 +78,7 @@ class _RegisterFormState extends State<RegisterForm> {
     });
     if (!_formKey.currentState!.validate()) return;
 
+    final l10n = context.l10n;
     setState(() => _isLoading = true);
     try {
       final session = await AuthService.register(
@@ -86,39 +90,19 @@ class _RegisterFormState extends State<RegisterForm> {
       if (!mounted) return;
       widget.onAuthenticated(
         session,
-        'Hesabın oluşturuldu. Hoş geldin, ${session.user.firstName}!',
+        l10n.authAccountCreated(session.user.firstName),
       );
-    } on AuthException catch (error) {
-      if (mounted) setState(() => _serverError = error.message);
+    } on AppException catch (error) {
+      if (mounted) setState(() => _serverError = error.message(l10n));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  void _showPolicy(String title) {
-    // GEÇİCİ: Yasal metinler henüz eklenmedi. Yayınlandığında bu diyalog
-    // ilgili sayfayı açacak şekilde (ör. url_launcher) değiştirilmeli.
-    showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(title),
-        content: Text(
-          '$title metni henüz yayınlanmadı. Yayınlandığında buradan '
-          'okuyabileceksin.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Kapat'),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final palette = AuthPalette.of(context);
+    final l10n = context.l10n;
+    final validators = AuthValidators(l10n);
 
     return Form(
       key: _formKey,
@@ -129,87 +113,83 @@ class _RegisterFormState extends State<RegisterForm> {
           children: [
             AuthTextField(
               key: const Key('register_name'),
-              maxLength: AuthValidators.maxNameLength,
               controller: _nameController,
-              label: 'Ad soyad',
-              hint: 'Ayşe Yılmaz',
+              label: l10n.authFullName,
+              hint: l10n.authFullNameHint,
               icon: Icons.person_outline_rounded,
               keyboardType: TextInputType.name,
               textCapitalization: TextCapitalization.words,
               autofillHints: const [AutofillHints.name],
-              validator: AuthValidators.fullName,
+              maxLength: AuthValidators.maxNameLength,
+              validator: validators.fullName,
               enabled: !_isLoading,
               onFieldSubmitted: (_) => _emailFocus.requestFocus(),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: Gap.lg),
             AuthTextField(
               key: const Key('register_email'),
-              maxLength: AuthValidators.maxEmailLength,
               controller: _emailController,
               focusNode: _emailFocus,
-              label: 'E-posta adresi',
-              hint: 'ad@ornek.com',
+              label: l10n.authEmail,
+              hint: l10n.authEmailHint,
               icon: Icons.mail_outline_rounded,
               keyboardType: TextInputType.emailAddress,
               autofillHints: const [AutofillHints.email],
-              validator: AuthValidators.email,
+              maxLength: AuthValidators.maxEmailLength,
+              validator: validators.email,
               enabled: !_isLoading,
               onFieldSubmitted: (_) => _passwordFocus.requestFocus(),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: Gap.lg),
             AuthTextField(
               key: const Key('register_password'),
-              maxLength: AuthValidators.maxPasswordLength,
               controller: _passwordController,
               focusNode: _passwordFocus,
-              label: 'Şifre',
+              label: l10n.authPassword,
               icon: Icons.lock_outline_rounded,
               isPassword: true,
               autofillHints: const [AutofillHints.newPassword],
-              validator: AuthValidators.newPassword,
+              maxLength: AuthValidators.maxPasswordLength,
+              validator: validators.newPassword,
               enabled: !_isLoading,
               onChanged: (_) => setState(() {}),
               onFieldSubmitted: (_) => _confirmFocus.requestFocus(),
             ),
-            const SizedBox(height: 10),
-            _PasswordRequirements(password: _passwordController.text),
-            const SizedBox(height: 16),
+            const SizedBox(height: Gap.sm + 2),
+            PasswordRequirements(password: _passwordController.text),
+            const SizedBox(height: Gap.lg),
             AuthTextField(
               key: const Key('register_confirm'),
-              maxLength: AuthValidators.maxPasswordLength,
               controller: _confirmController,
               focusNode: _confirmFocus,
-              label: 'Şifre tekrarı',
+              label: l10n.authConfirmPassword,
               icon: Icons.lock_reset_rounded,
               isPassword: true,
               textInputAction: TextInputAction.done,
               autofillHints: const [AutofillHints.newPassword],
-              validator: (value) => AuthValidators.confirmPassword(
-                value,
-                _passwordController.text,
-              ),
+              maxLength: AuthValidators.maxPasswordLength,
+              validator: (value) =>
+                  validators.confirmPassword(value, _passwordController.text),
               enabled: !_isLoading,
               onFieldSubmitted: (_) => _submit(),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: Gap.md),
             FormField<bool>(
               initialValue: false,
-              validator: (accepted) => accepted == true
-                  ? null
-                  : 'Devam etmek için koşulları kabul etmelisin.',
+              validator: (accepted) =>
+                  accepted == true ? null : l10n.authTermsRequired,
               builder: (field) {
                 final linkStyle = TextStyle(
-                  color: palette.link,
-                  fontWeight: FontWeight.w700,
+                  color: context.colors.primary,
+                  fontWeight: FontWeight.w600,
                 );
-
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Tapping the sentence toggles the box; the policy links
                     // keep their own tap handlers.
                     InkWell(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(Radii.sm),
                       onTap: _isLoading
                           ? null
                           : () => field.didChange(!(field.value ?? false)),
@@ -220,42 +200,28 @@ class _RegisterFormState extends State<RegisterForm> {
                             key: const Key('register_terms'),
                             value: field.value ?? false,
                             onChanged: _isLoading ? null : field.didChange,
-                            activeColor: palette.focus,
                             isError: field.hasError,
-                            side: BorderSide(
-                              color: field.hasError
-                                  ? palette.error
-                                  : palette.textMuted,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(5),
-                            ),
                           ),
                           Expanded(
                             child: Padding(
-                              padding: const EdgeInsets.only(top: 12),
+                              padding: const EdgeInsets.only(top: Gap.md),
                               child: Text.rich(
                                 TextSpan(
-                                  style: TextStyle(
-                                    color: palette.textMuted,
-                                    fontSize: 13.5,
-                                    height: 1.45,
-                                  ),
+                                  style: context.text.bodySmall,
                                   children: [
+                                    TextSpan(text: l10n.authTermsPrefix),
                                     TextSpan(
-                                      text: 'Kullanım Koşulları',
+                                      text: l10n.legalTermsTitle,
                                       style: linkStyle,
                                       recognizer: _termsRecognizer,
                                     ),
-                                    const TextSpan(text: '\'nı ve '),
+                                    TextSpan(text: l10n.authTermsMiddle),
                                     TextSpan(
-                                      text: 'Gizlilik Politikası',
+                                      text: l10n.legalPrivacyTitle,
                                       style: linkStyle,
                                       recognizer: _privacyRecognizer,
                                     ),
-                                    const TextSpan(
-                                      text: '\'nı okudum, kabul ediyorum.',
-                                    ),
+                                    TextSpan(text: l10n.authTermsSuffix),
                                   ],
                                 ),
                               ),
@@ -266,13 +232,14 @@ class _RegisterFormState extends State<RegisterForm> {
                     ),
                     if (field.hasError)
                       Padding(
-                        padding: const EdgeInsets.only(left: 14, top: 2),
+                        padding: const EdgeInsets.only(
+                          left: Gap.md + 2,
+                          top: 2,
+                        ),
                         child: Text(
                           field.errorText!,
-                          style: TextStyle(
-                            color: palette.error,
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w600,
+                          style: context.text.bodySmall?.copyWith(
+                            color: context.colors.error,
                           ),
                         ),
                       ),
@@ -281,29 +248,29 @@ class _RegisterFormState extends State<RegisterForm> {
               },
             ),
             if (_serverError != null) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: Gap.md),
               AuthMessageBanner(message: _serverError!),
             ],
-            const SizedBox(height: 20),
+            const SizedBox(height: Gap.lg),
             AuthSubmitButton(
               key: const Key('register_submit'),
-              label: 'Hesap Oluştur',
-              loadingLabel: 'Hesap oluşturuluyor…',
+              label: l10n.authCreateAccount,
+              loadingLabel: l10n.authCreatingAccount,
               isLoading: _isLoading,
               onPressed: _submit,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: Gap.xl),
             const AuthOrDivider(),
-            const SizedBox(height: 24),
+            const SizedBox(height: Gap.xl),
             SocialAuthButtons(
               isSignUp: true,
               enabled: !_isLoading,
               onPressed: widget.onSocialPressed,
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: Gap.lg),
             AuthSwitchPrompt(
-              question: 'Zaten hesabın var mı?',
-              action: 'Giriş Yap',
+              question: l10n.authHaveAccount,
+              action: l10n.authSignIn,
               onPressed: _isLoading ? null : widget.onSwitchToLogin,
             ),
           ],
@@ -313,30 +280,32 @@ class _RegisterFormState extends State<RegisterForm> {
   }
 }
 
-class _PasswordRequirements extends StatelessWidget {
+/// Live checklist of the password rules under the password field.
+class PasswordRequirements extends StatelessWidget {
   final String password;
 
-  const _PasswordRequirements({required this.password});
+  const PasswordRequirements({super.key, required this.password});
 
   @override
   Widget build(BuildContext context) {
-    final palette = AuthPalette.of(context);
+    final l10n = context.l10n;
     final rules = [
       (
-        'En az ${AuthValidators.minPasswordLength} karakter',
+        l10n.passwordRuleLength(AuthValidators.minPasswordLength),
         password.length >= AuthValidators.minPasswordLength,
       ),
-      ('Bir harf', AuthValidators.hasLetter(password)),
-      ('Bir rakam', AuthValidators.hasDigit(password)),
+      (l10n.passwordRuleLetter, AuthValidators.hasLetter(password)),
+      (l10n.passwordRuleDigit, AuthValidators.hasDigit(password)),
     ];
 
     return Wrap(
-      spacing: 14,
-      runSpacing: 6,
+      spacing: Gap.md + 2,
+      runSpacing: Gap.xs + 2,
       children: [
         for (final (label, met) in rules)
           Semantics(
-            label: '$label: ${met ? 'karşılandı' : 'karşılanmadı'}',
+            label:
+                '$label: ${met ? l10n.passwordRuleMet : l10n.passwordRuleUnmet}',
             excludeSemantics: true,
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -346,15 +315,15 @@ class _PasswordRequirements extends StatelessWidget {
                       ? Icons.check_circle_rounded
                       : Icons.radio_button_unchecked_rounded,
                   size: 16,
-                  color: met ? palette.success : palette.textMuted,
+                  color: met
+                      ? context.tokens.success
+                      : context.tokens.textTertiary,
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: Gap.xs + 2),
                 Text(
                   label,
-                  style: TextStyle(
-                    color: met ? palette.text : palette.textMuted,
-                    fontSize: 12.5,
-                    fontWeight: met ? FontWeight.w600 : FontWeight.w500,
+                  style: context.text.bodySmall?.copyWith(
+                    color: met ? context.colors.onSurface : null,
                   ),
                 ),
               ],

@@ -1,32 +1,30 @@
 import 'package:flutter/foundation.dart';
 
+import '../../data/exercise_catalog.dart';
+import 'user_storage.dart';
+
 class FavoriteExercisesStore {
-  static final ValueNotifier<Set<String>> favorites =
-      ValueNotifier<Set<String>>({});
+  static const _storageName = 'favorites';
 
-  static bool isFavorite(String exerciseName) {
-    return favorites.value.contains(exerciseName);
+  static final ValueNotifier<Set<ExerciseId>> favorites = ValueNotifier({});
+
+  static bool isFavorite(ExerciseId exercise) =>
+      favorites.value.contains(exercise);
+
+  static Future<void> toggle(ExerciseId exercise) async {
+    final next = Set<ExerciseId>.from(favorites.value);
+    if (!next.remove(exercise)) next.add(exercise);
+    favorites.value = next;
+    await UserStorage.writeJson(_storageName, next.map((e) => e.name).toList());
   }
 
-  static void toggleFavorite(String exerciseName) {
-    final updatedFavorites = Set<String>.from(favorites.value);
-
-    if (updatedFavorites.contains(exerciseName)) {
-      updatedFavorites.remove(exerciseName);
-    } else {
-      updatedFavorites.add(exerciseName);
-    }
-
-    favorites.value = updatedFavorites;
+  static Future<void> load() async {
+    final stored = await UserStorage.readJson(_storageName);
+    favorites.value = {
+      if (stored is List)
+        for (final name in stored.whereType<String>()) ?exerciseFromName(name),
+    };
   }
 
-  static void removeFavorite(String exerciseName) {
-    final updatedFavorites = Set<String>.from(favorites.value);
-    updatedFavorites.remove(exerciseName);
-    favorites.value = updatedFavorites;
-  }
-
-  static void clearFavorites() {
-    favorites.value = {};
-  }
+  static void clear() => favorites.value = {};
 }
