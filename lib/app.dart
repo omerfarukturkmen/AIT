@@ -83,7 +83,7 @@ class MyApp extends StatelessWidget {
       builder: (context, settings, child) {
         return MaterialApp(
           debugShowCheckedModeBanner: false,
-          title: 'AIT Fitness',
+          title: 'AIT',
           theme: _lightTheme(),
           darkTheme: _darkTheme(),
           themeMode: settings.isDarkMode ? ThemeMode.dark : ThemeMode.light,

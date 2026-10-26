@@ -1,19 +1,33 @@
-# flutter_application_1
+# AIT
 
-A new Flutter project.
+Yapay zekâ destekli egzersiz form analizi. Kullanıcı squat veya şınav
+videosunu yükler ya da kamerayla kaydeder; uygulama tekrar sayısını, form
+puanını, hataları ve önerileri gösterir.
 
-## Getting Started
+| Klasör | İçerik |
+| --- | --- |
+| `lib/` | Flutter uygulaması (Android, iOS, web) |
+| `backend/` | FastAPI sunucusu: kimlik doğrulama, video yükleme, analiz geçmişi |
+| `ai/` | Poz tespiti ve hareket analizi (MediaPipe); ayrıntılar `ai/README_AI.md` |
+| `docs/` | Güvenlik kontrolleri ve proje belgeleri |
 
-This project is a starting point for a Flutter application.
+Uygulama kimliği: `com.ait.fitness` (Android ve iOS), görünen ad: **AIT**.
 
-A few resources to get you started if this is your first Flutter project:
+## Hızlı başlangıç
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+```bash
+# 1. Backend
+cd backend
+pip install -r requirements.txt
+python ../ai/scripts/download_pose_model.py   # analiz modeli (bir kez)
+uvicorn main:app --reload
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+# 2. Uygulama (ayrı terminalde, proje kökünde)
+flutter pub get
+flutter run -d chrome
+```
+
+Testler: `cd backend && pytest`, `cd ai && pytest`, `flutter test`.
 
 ## Kimlik doğrulama
 
