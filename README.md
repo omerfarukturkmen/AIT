@@ -134,16 +134,42 @@ olmalıdır; `http://` yalnızca yerel geliştirme içindir.
 3. Uygulamayı `--dart-define=API_BASE_URL=https://api.ornek.com` ile derleyin.
    Android release derlemesi düz `http` trafiğine zaten izin vermez.
 
-### Henüz eksik olanlar
+### Yayından önce yapılması gerekenler
 
-- **Google / Apple ile giriş:** Butonlar hazır, ancak sağlayıcı yapılandırılmadığı
-  için kullanıcıya "henüz yapılandırılmadı" mesajı gösterir. Etkinleştirmek için
-  `google_sign_in` ve `sign_in_with_apple` paketlerini ekleyin; Google Cloud
-  Console'da OAuth istemci kimliklerini (Android SHA-1, iOS URL şeması, web
-  istemci kimliği), Apple Developer'da "Sign in with Apple" yetkisini ve Services
-  ID'yi oluşturun; backend'e ID token'ı doğrulayan `/auth/google` ve
-  `/auth/apple` uçlarını ekleyin; ardından
-  `AuthService.signInWithProvider` metodunu güncelleyin.
-- **Şifre sıfırlama:** Backend ucu ve e-posta gönderimi yok; "Şifremi unuttum"
-  bu durumu açıklayan bir diyalog gösterir.
-- **Kullanım Koşulları / Gizlilik Politikası** metinleri henüz eklenmedi.
+- **Google / Apple ile giriş:** Kod hazır; istemci kimlikleri girilene kadar
+  butonlar "henüz kullanılamıyor" der. Kurulum: `docs/SOSYAL_GIRIS_KURULUMU.md`.
+- **E-posta gönderimi:** Şifre sıfırlama ve e-posta doğrulama çalışıyor;
+  canlıda `SMTP_*` değişkenleri tanımlanmalı.
+- **Yasal metinler:** Gizlilik Politikası, KVKK Aydınlatma Metni ve Kullanım
+  Koşulları uygulamada TR/EN olarak var. `lib/core/legal_info.dart` içindeki
+  veri sorumlusu ve iletişim bilgisi doldurulmalı ve metinler bir hukuk
+  danışmanına kontrol ettirilmeli.
+- **Sunucu:** `docs/DAGITIM.md` (Docker, PostgreSQL, otomatik HTTPS).
+
+## Uygulama (Flutter)
+
+- **Dil:** Türkçe ve İngilizce. Metinler `lib/l10n/app_tr.arb` ve
+  `app_en.arb` dosyalarındadır; yeni metin eklerken ikisine de ekleyip
+  `flutter gen-l10n` çalıştırın.
+- **Tema:** Açık, koyu ve sistem; tasarım değerleri `lib/core/theme/app_theme.dart`.
+- **Derleme parametreleri** (`--dart-define`):
+
+| Parametre | Açıklama |
+| --- | --- |
+| `API_BASE_URL` | Backend adresi (varsayılan `http://127.0.0.1:8000`; Android emülatöründe `http://10.0.2.2:8000`). |
+| `GOOGLE_SERVER_CLIENT_ID`, `GOOGLE_IOS_CLIENT_ID` | Google ile giriş. |
+| `APPLE_SIGN_IN_ENABLED` | `true` ise iOS/macOS'ta Apple ile giriş açılır. |
+
+- **Analiz edilebilen hareketler:** Squat ve şınav. Diğer egzersizler
+  kütüphanede "Yakında" olarak görünür.
+
+## Testler ve CI
+
+```bash
+cd backend && pytest        # API, güvenlik, migration, sosyal giriş
+cd ai && pytest             # hareket analizi
+flutter analyze lib test && flutter test
+```
+
+GitHub Actions (`.github/workflows/ci.yml`) her push ve pull request'te bu
+testleri ve `pip-audit` bağımlılık taramasını çalıştırır.
