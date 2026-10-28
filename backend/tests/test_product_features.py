@@ -107,10 +107,11 @@ def test_migrations_upgrade_a_pre_auth_database(tmp_path):
     user_columns = {r[1] for r in con.execute("pragma table_info(users)")}
     assert {"auth_sessions", "one_time_codes", "social_identities"} <= tables
     assert {"password_hash", "full_name", "email_verified"} <= user_columns
+    assert "password" not in user_columns  # plaintext column dropped
     assert con.execute("select username from users").fetchall() == [("eski",)]
     assert con.execute("select count(*) from videos").fetchone() == (1,)
     assert con.execute("select version_num from alembic_version").fetchone() == (
-        "0002_product_features",
+        "0003_drop_plaintext_password",
     )
     con.close()
 
