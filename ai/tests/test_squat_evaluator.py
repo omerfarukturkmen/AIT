@@ -183,8 +183,35 @@ def test_manifest_groups_by_camera_angle(tmp_path: Path):
     assert summary["by_camera_angle"]["side"]["rep_match_known_count"] == 0
 
 
-def test_null_expected_reps_excluded_from_rep_accuracy():
-    manifest = FIXTURES / "squat_video_manifest.json"
+def test_null_expected_reps_excluded_from_rep_accuracy(tmp_path: Path):
+    # Self-contained: the real sample videos are not in the repository.
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "videos": [
+                    {
+                        "id": "known",
+                        "path": "known.mp4",
+                        "exercise_type": "squat",
+                        "camera_angle": "unknown",
+                        "expected_reps": 2,
+                    },
+                    {
+                        "id": "unknown",
+                        "path": "unknown.mp4",
+                        "exercise_type": "squat",
+                        "camera_angle": "unknown",
+                        "expected_reps": None,
+                    },
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    for name in ("known.mp4", "unknown.mp4"):
+        (tmp_path / name).write_bytes(b"x")
+
     report = evaluate_squat_manifest(
         manifest,
         run_analysis=lambda **kwargs: _success_result(rep_count=2),
@@ -192,7 +219,7 @@ def test_null_expected_reps_excluded_from_rep_accuracy():
     known = [
         r for r in report["results"] if r.get("rep_count_match") is not None
     ]
-    assert len(known) == 1  # only IMG_5512 has expected_reps=2
+    assert len(known) == 1  # only "known" has expected_reps=2
     assert report["summary"]["rep_accuracy_known_samples"] == 1.0
 
 
