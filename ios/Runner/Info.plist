@@ -6,6 +6,12 @@
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
 	<string>AIT</string>
+	<key>NSCameraUsageDescription</key>
+	<string>AIT, egzersiz videonu kaydedip hareket formunu analiz etmek için kamerayı kullanır.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>AIT egzersiz videolarını sessiz kaydeder; bu izin yalnızca kamera kaydı altyapısı için tanımlıdır.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>AIT, analiz etmek istediğin egzersiz videosunu galerinden seçebilmen için fotoğraf arşivine erişir.</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>

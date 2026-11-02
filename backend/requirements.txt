@@ -8,7 +8,7 @@ alembic==1.20.1
 # Verifies Google/Apple ID tokens (RS256 via cryptography).
 PyJWT[crypto]==2.15.1
 cryptography==50.0.2
-opencv-python==4.11.0.86
+opencv-contrib-python==4.11.0.86
 numpy==1.26.4
 # Same version as ai/requirements.txt (the backend runs the AI module).
 mediapipe==0.10.35

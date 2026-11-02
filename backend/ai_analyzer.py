@@ -23,6 +23,7 @@ if str(_AI_SRC) not in sys.path:
     sys.path.insert(0, str(_AI_SRC))
 
 from exercise_registry import display_exercise_name  # noqa: E402
+from pose_detector import resolve_pose_model_path  # noqa: E402
 from video_processor import (  # noqa: E402
     UnsupportedExerciseError,
     VideoValidationError,
@@ -121,6 +122,50 @@ def _compute_score(ai_result: dict[str, Any], metrics: dict[str, Any]) -> int:
     return max(0, min(100, score))
 
 
+def _select_score(
+    ai_result: dict[str, Any],
+    schema: dict[str, Any],
+    metrics: dict[str, Any],
+) -> tuple[int, dict[str, Any]]:
+    """Prefer the analyzer's exercise-specific score (schema 1.0 ``score``).
+
+    The squat/push-up analyzers score each finished rep on their own
+    components (depth, alignment, tempo...). _compute_score is squat-shaped
+    (knee depth) and capped push-ups at ~80, so it is only the fallback for
+    videos without a finished rep.
+    """
+    schema_score = schema.get("score") if isinstance(schema, dict) else None
+    schema_score = schema_score if isinstance(schema_score, dict) else {}
+    components = dict(schema_score.get("components") or {})
+    overall = schema_score.get("overall")
+    completed = int(ai_result.get("valid_reps") or 0) + int(
+        ai_result.get("invalid_reps") or 0
+    )
+    if completed > 0 and isinstance(overall, (int, float)):
+        return max(0, min(100, int(round(overall)))), components
+    return _compute_score(ai_result, metrics), components
+
+
+def _is_missing_pose_model(exc: FileNotFoundError) -> bool:
+    return "pose landmarker model" in str(exc).lower()
+
+
+def warn_if_pose_model_missing() -> bool:
+    """Logs a clear startup error when the pose model file is absent.
+
+    Returns True when the model is present. Without it every analysis fails.
+    """
+    path = resolve_pose_model_path()
+    if path.is_file():
+        return True
+    logger.error(
+        "Pose model not found at %s: every analysis will fail. Run "
+        "`python ai/scripts/download_pose_model.py` or set AIT_POSE_MODEL_PATH.",
+        path,
+    )
+    return False
+
+
 def _feedback_text(ai_result: dict[str, Any], score: int) -> str:
     feedback_list = ai_result.get("feedback") or []
     # Prefer human-readable messages; skip raw error codes already in errors.
@@ -182,7 +227,9 @@ def analyze_video(video_path: str, exercise_type: str) -> dict[str, Any]:
         # summary schema. Reading ai_result here reported 0 reps.
         ai_result = analysis.get("domain_result") or analysis["ai_result"]
         metrics = analysis["metrics"]
-        score = _compute_score(ai_result, metrics)
+        schema = analysis.get("ai_result") or {}
+        score, score_components = _select_score(ai_result, schema, metrics)
+        top_feedback = list((schema.get("feedback") or {}).get("top") or [])
         risk_percent = max(0, min(100, 100 - score))
         repetition_count = int(ai_result.get("rep_count") or 0)
         valid_reps = int(ai_result.get("valid_reps") or 0)
@@ -243,6 +290,8 @@ def analyze_video(video_path: str, exercise_type: str) -> dict[str, Any]:
             "knee_range_of_motion": ai_result.get("knee_range_of_motion"),
             "selected_side": selected_side,
             "risk_percent": risk_percent,
+            "score_components": score_components,
+            "top_feedback": top_feedback,
             "analysis_elapsed_seconds": elapsed,
         }
 
@@ -286,6 +335,15 @@ def analyze_video(video_path: str, exercise_type: str) -> dict[str, Any]:
         logger.error("UnsupportedExerciseError\n%s", traceback.format_exc())
         raise AnalysisError(str(exc), status_code=400) from exc
     except FileNotFoundError as exc:
+        if _is_missing_pose_model(exc):
+            # A server setup problem, not a bad video: say so in the logs and
+            # do not tell the user their video is unreadable.
+            logger.error(
+                "Pose model missing; run ai/scripts/download_pose_model.py "
+                "or set AIT_POSE_MODEL_PATH.\n%s",
+                traceback.format_exc(),
+            )
+            raise AnalysisError(str(exc), status_code=503) from exc
         logger.error("FileNotFoundError\n%s", traceback.format_exc())
         raise AnalysisError(str(exc), status_code=422) from exc
     except Exception as exc:
