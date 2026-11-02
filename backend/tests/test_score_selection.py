@@ -38,12 +38,11 @@ def test_pushup_is_no_longer_capped_by_squat_depth_formula():
     assert score == 97
 
 
-def test_no_finished_reps_falls_back_to_the_modest_score():
+def test_no_finished_reps_scores_zero_instead_of_a_misleading_number():
     domain = {"valid_reps": 0, "invalid_reps": 0, "errors": []}
     metrics = {"landmark_detection_ratio": 0.9, "mean_landmark_visibility": 0.9}
     score, _ = ai_analyzer._select_score(domain, _schema(0), metrics)
-    assert score == ai_analyzer._compute_score(domain, metrics)
-    assert score <= 45
+    assert score == 0
 
 
 def test_score_is_clamped_and_tolerates_a_missing_schema():
@@ -97,3 +96,37 @@ def test_startup_check_reports_a_missing_model(monkeypatch, tmp_path):
     present.write_bytes(b"x")
     monkeypatch.setenv("AIT_POSE_MODEL_PATH", str(present))
     assert ai_analyzer.warn_if_pose_model_missing() is True
+
+
+def _fake_analysis(domain_extra):
+    domain = {"rep_count": 0, "valid_reps": 0, "invalid_reps": 0, "errors": [],
+              "feedback": [], "rep_history": []}
+    domain.update(domain_extra)
+    return {
+        "domain_result": domain,
+        "ai_result": {"score": {"overall": 0, "components": {}}, "feedback": {"top": []}},
+        "metrics": {"total_frames": 30, "landmark_detection_ratio": 0.0},
+    }
+
+
+def _video(tmp_path):
+    video = tmp_path / "clip.mp4"
+    video.write_bytes(b"\x00\x00\x00\x18ftypmp42")
+    return str(video)
+
+
+def test_video_without_a_visible_person_fails_with_guidance(tmp_path, monkeypatch):
+    analysis = _fake_analysis({"analysis_status": "insufficient_landmark_visibility"})
+    monkeypatch.setattr(ai_analyzer, "run_video_analysis", lambda **_: analysis)
+    with pytest.raises(ai_analyzer.AnalysisError) as exc_info:
+        ai_analyzer.analyze_video(_video(tmp_path), "squat")
+    assert exc_info.value.status_code == 422
+    assert exc_info.value.user_message == ai_analyzer.NO_PERSON_MESSAGE
+
+
+def test_person_visible_but_no_finished_rep_reports_the_issue(tmp_path, monkeypatch):
+    analysis = _fake_analysis({"analysis_status": "completed"})
+    monkeypatch.setattr(ai_analyzer, "run_video_analysis", lambda **_: analysis)
+    result = ai_analyzer.analyze_video(_video(tmp_path), "pushup")
+    assert result["score"] == 0
+    assert result["errors"][0] == ai_analyzer.NO_REPS_CODE

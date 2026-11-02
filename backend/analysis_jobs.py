@@ -151,7 +151,11 @@ def run_analysis(analysis_id: int) -> None:
                 analysis.result_json = json.dumps(payload, ensure_ascii=False, default=str)
         except ai_analyzer.AnalysisError as exc:
             logger.error("AnalysisError id=%s: %s\n%s", analysis_id, exc.message, traceback.format_exc())
-            _fail(analysis, SAFE_ANALYSIS_ERRORS.get(exc.status_code, ANALYSIS_FAILED))
+            _fail(
+                analysis,
+                exc.user_message
+                or SAFE_ANALYSIS_ERRORS.get(exc.status_code, ANALYSIS_FAILED),
+            )
         except Exception:
             logger.error("Unexpected analysis error id=%s\n%s", analysis_id, traceback.format_exc())
             _fail(analysis, ANALYSIS_FAILED)
