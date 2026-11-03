@@ -953,6 +953,19 @@ class PushupAnalyzer:
         )
         return feedback_items_as_dicts(select_top_feedback(items))
 
+    def session_error_codes(self) -> list[str]:
+        """Unique form-issue codes seen in finished reps, most important first.
+
+        Same role as SquatAnalyzer.errors: the backend scores with them and the
+        app turns them into localized corrections.
+        """
+        seen: set[str] = set()
+        for rep in self.rep_history:
+            seen.update(str(code) for code in rep.get("errors") or [])
+        order = FORM_ISSUE_PRIORITY + _INCOMPLETE_FEEDBACK_KEYS
+        ranked = [code for code in order if code in seen]
+        return ranked + sorted(seen.difference(order))
+
     def get_result(self, video_path: str | None = None) -> dict[str, Any]:
         _ = video_path
         self.finalize_session()
@@ -971,6 +984,8 @@ class PushupAnalyzer:
             "current_state": self.state,
             "state": self.state,
             "form_errors": dict(self.form_errors),
+            "errors": self.session_error_codes(),
+            "rep_history": [dict(rep) for rep in self.rep_history],
             "feedback": list(final_feedback),
             "angles": {
                 "avg_elbow": self.current_angles.get("avg_elbow"),

@@ -40,6 +40,7 @@ SAFE_ANALYSIS_ERRORS = {
     400: "Bu hareket türü desteklenmiyor.",
     422: "Video okunamadı veya analiz için uygun değil. "
     "Lütfen net ve kısa bir video yükleyin.",
+    503: "Analiz servisi şu an hazır değil. Lütfen daha sonra tekrar dene.",
 }
 ANALYSIS_FAILED = "Analiz sırasında beklenmeyen bir hata oluştu. Lütfen tekrar deneyin."
 ANALYSIS_INTERRUPTED = (

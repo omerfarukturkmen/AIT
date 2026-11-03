@@ -18,6 +18,7 @@ from account_recovery import router as account_router
 from auth import get_current_user, router as auth_router
 from rate_limit import RateLimitExceeded, RateLimiter, client_ip
 from social_auth import router as social_router
+import ai_analyzer
 import analysis_jobs
 import json
 import migrate
@@ -72,6 +73,7 @@ migrate.upgrade_database()
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
+    ai_analyzer.warn_if_pose_model_missing()
     analysis_jobs.fail_interrupted_analyses()
     stop_retention = analysis_jobs.start_retention_worker()
     yield
