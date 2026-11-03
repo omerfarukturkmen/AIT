@@ -65,6 +65,80 @@ NO_PERSON_MESSAGE = (
     "kadrajda olsun ve iyi ışıkta tekrar çek."
 )
 NO_REPS_CODE = "no_completed_reps"
+UNREADABLE_MESSAGE = (
+    "Video açılamadı ya da eksik. Dosya bozuk olabilir; telefonunun "
+    "kamerasıyla yeniden çekip tekrar yükle."
+)
+TOO_SHORT_MESSAGE = (
+    "Video çok kısa. En az 2 saniyelik ve en az bir tam tekrar içeren "
+    "bir video yükle."
+)
+PARTIAL_BODY_MESSAGE = (
+    "Vücudunun bir kısmı (çoğunlukla ayaklar veya dizler) kadraj dışında "
+    "kaldı. Telefonu biraz uzaklaştır, baştan ayağa görünecek şekilde çek."
+)
+LOW_FPS_WARNING = "Video kare hızı düşük; sonuçlar daha az güvenilir olabilir."
+PARTIAL_BODY_WARNING = "Vücudun bazı karelerde tam görünmedi; sonuçları kontrol et."
+
+# Thresholds measured on IMG_5512 variants (03.11.2026): an 8 fps copy still
+# counted 2/2 reps; a copy cropped below the knees had 41% usable frames and
+# lost one of two reps.
+MIN_DURATION_SECONDS = 2.0
+MIN_DECODED_FRAME_SHARE = 0.5
+MIN_USABLE_FRAME_RATIO = 0.5
+WARN_USABLE_FRAME_RATIO = 0.8
+MIN_FPS = 5.0
+WARN_FPS = 15.0
+
+
+def _check_video_quality(
+    ai_result: dict[str, Any], metrics: dict[str, Any]
+) -> list[str]:
+    """Stops on videos whose result would mislead; returns soft warnings.
+
+    Order matters: a truncated or very short file is reported as such before
+    it is judged on body visibility.
+    """
+    total = int(metrics.get("total_frames") or 0)
+    reported = int(metrics.get("reported_frame_count") or 0)
+    if reported > 0 and total < reported * MIN_DECODED_FRAME_SHARE:
+        raise AnalysisError(
+            f"Decoded {total} of {reported} frames", status_code=422,
+            user_message=UNREADABLE_MESSAGE,
+        )
+    fps = float(metrics.get("fps") or 0.0)
+    if 0.0 < fps < MIN_FPS:
+        raise AnalysisError(
+            f"Frame rate too low: {fps}", status_code=422,
+            user_message=UNREADABLE_MESSAGE,
+        )
+    duration = float(metrics.get("duration_seconds") or 0.0)
+    if 0.0 < duration < MIN_DURATION_SECONDS:
+        raise AnalysisError(
+            f"Video too short: {duration}s", status_code=422,
+            user_message=TOO_SHORT_MESSAGE,
+        )
+    if ai_result.get("analysis_status") == ANALYSIS_STATUS_INSUFFICIENT_VISIBILITY:
+        # No usable body landmarks in the whole video: nothing to score.
+        raise AnalysisError(
+            "No usable pose landmarks in the video", status_code=422,
+            user_message=NO_PERSON_MESSAGE,
+        )
+    quality = metrics.get("quality") or {}
+    usable = quality.get("usable_landmark_frame_ratio")
+    warnings: list[str] = []
+    if isinstance(usable, (int, float)):
+        if usable < MIN_USABLE_FRAME_RATIO:
+            raise AnalysisError(
+                f"Only {usable:.0%} of pose frames had the required landmarks",
+                status_code=422,
+                user_message=PARTIAL_BODY_MESSAGE,
+            )
+        if usable < WARN_USABLE_FRAME_RATIO:
+            warnings.append(PARTIAL_BODY_WARNING)
+    if 0.0 < fps < WARN_FPS:
+        warnings.append(LOW_FPS_WARNING)
+    return warnings
 
 
 def _depth_quality_score(ai_result: dict[str, Any]) -> float:
@@ -247,14 +321,7 @@ def analyze_video(video_path: str, exercise_type: str) -> dict[str, Any]:
         # summary schema. Reading ai_result here reported 0 reps.
         ai_result = analysis.get("domain_result") or analysis["ai_result"]
         metrics = analysis["metrics"]
-        if ai_result.get("analysis_status") == ANALYSIS_STATUS_INSUFFICIENT_VISIBILITY:
-            # No usable body landmarks in the whole video: there is nothing
-            # to score, so fail with guidance instead of a low score.
-            raise AnalysisError(
-                "No usable pose landmarks in the video",
-                status_code=422,
-                user_message=NO_PERSON_MESSAGE,
-            )
+        quality_warnings = _check_video_quality(ai_result, metrics)
         schema = analysis.get("ai_result") or {}
         score, score_components = _select_score(ai_result, schema, metrics)
         top_feedback = list((schema.get("feedback") or {}).get("top") or [])
@@ -266,6 +333,7 @@ def analyze_video(video_path: str, exercise_type: str) -> dict[str, Any]:
         if valid_reps + invalid_reps == 0 and NO_REPS_CODE not in errors:
             errors.insert(0, NO_REPS_CODE)
         camera_warnings = list(metrics.get("camera_warnings") or [])
+        camera_warnings += [w for w in quality_warnings if w not in camera_warnings]
         feedback = _feedback_text(ai_result, score)
         rep_history = list(ai_result.get("rep_history") or [])
 
@@ -360,7 +428,9 @@ def analyze_video(video_path: str, exercise_type: str) -> dict[str, Any]:
         raise
     except VideoValidationError as exc:
         logger.error("VideoValidationError\n%s", traceback.format_exc())
-        raise AnalysisError(str(exc), status_code=422) from exc
+        raise AnalysisError(
+            str(exc), status_code=422, user_message=UNREADABLE_MESSAGE
+        ) from exc
     except UnsupportedExerciseError as exc:
         logger.error("UnsupportedExerciseError\n%s", traceback.format_exc())
         raise AnalysisError(str(exc), status_code=400) from exc
