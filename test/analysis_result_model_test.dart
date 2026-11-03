@@ -1,4 +1,6 @@
+import 'package:flutter_application_1/core/state/analysis_history_store.dart';
 import 'package:flutter_application_1/data/exercise_catalog.dart';
+import 'package:flutter_application_1/l10n/analysis_messages.dart';
 import 'package:flutter_application_1/l10n/form_issues.dart';
 import 'package:flutter_application_1/models/analysis_result_model.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -77,5 +79,36 @@ void main() {
       ExerciseId.squat,
       ExerciseId.pushUp,
     ]);
+  });
+
+  test('warning codes are read and localized; unknown ones are skipped', () {
+    final result = AnalysisResult.fromPayload(
+      resultPayload(warningCodes: ['low_frame_rate', 'something_new']),
+    );
+    expect(result.warningCodes, ['low_frame_rate', 'something_new']);
+    expect(
+      analysisWarningText(enL10n, 'low_frame_rate'),
+      enL10n.warningLowFrameRate,
+    );
+    expect(analysisWarningText(trL10n, 'something_new'), isNull);
+  });
+
+  test('a video without a finished rep is not scored', () {
+    final none = AnalysisResult.fromPayload(
+      resultPayload(score: 0, reps: 0, errors: ['no_completed_reps']),
+    );
+    expect(none.isScored, isFalse);
+    expect(AnalysisResult.fromPayload(resultPayload()).isScored, isTrue);
+  });
+
+  test('unscored analyses stay out of the average and best score', () {
+    AnalysisHistoryStore.results.value = [
+      AnalysisResult.fromPayload(resultPayload(score: 0, reps: 0)),
+      AnalysisResult.fromPayload(resultPayload(score: 80)),
+      AnalysisResult.fromPayload(resultPayload(score: 90)),
+    ];
+    addTearDown(AnalysisHistoryStore.clearHistory);
+    expect(AnalysisHistoryStore.averageScore, 85);
+    expect(AnalysisHistoryStore.bestScore, 90);
   });
 }

@@ -345,7 +345,10 @@ class AnalysisListTile extends StatelessWidget {
     final date = DateFormat.yMMMd(
       Localizations.localeOf(context).toLanguageTag(),
     ).add_Hm().format(result.createdAt);
-    final color = context.tokens.scoreColor(result.score);
+    final scored = result.isScored;
+    final color = scored
+        ? context.tokens.scoreColor(result.score)
+        : context.tokens.textTertiary;
 
     return AppCard(
       onTap: () => Navigator.of(
@@ -372,7 +375,9 @@ class AnalysisListTile extends StatelessWidget {
             ),
           ),
           Semantics(
-            label: '${l10n.resultScoreCaption} ${result.score}',
+            label: scored
+                ? '${l10n.resultScoreCaption} ${result.score}'
+                : l10n.resultNotScored,
             excludeSemantics: true,
             child: Container(
               width: 48,
@@ -383,7 +388,7 @@ class AnalysisListTile extends StatelessWidget {
                 borderRadius: BorderRadius.circular(Radii.md),
               ),
               child: Text(
-                '${result.score}',
+                scored ? '${result.score}' : '–',
                 style: context.text.titleMedium?.copyWith(color: color),
               ),
             ),

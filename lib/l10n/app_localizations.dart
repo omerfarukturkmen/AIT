@@ -272,6 +272,90 @@ abstract class AppLocalizations {
   /// **'Video analiz edilemedi. Tüm vücudunun göründüğü net bir video dene.'**
   String get errorAnalysisFailed;
 
+  /// No description provided for @analysisErrorNoPerson.
+  ///
+  /// In tr, this message translates to:
+  /// **'Videoda vücudun net görünmedi. Telefonu sabitle, tüm vücudun kadrajda olsun ve iyi ışıkta tekrar çek.'**
+  String get analysisErrorNoPerson;
+
+  /// No description provided for @analysisErrorUnreadable.
+  ///
+  /// In tr, this message translates to:
+  /// **'Video açılamadı ya da eksik. Dosya bozuk olabilir; telefonunun kamerasıyla yeniden çekip tekrar yükle.'**
+  String get analysisErrorUnreadable;
+
+  /// No description provided for @analysisErrorTooShort.
+  ///
+  /// In tr, this message translates to:
+  /// **'Video çok kısa. En az 2 saniyelik ve en az bir tam tekrar içeren bir video yükle.'**
+  String get analysisErrorTooShort;
+
+  /// No description provided for @analysisErrorBodyOutOfFrame.
+  ///
+  /// In tr, this message translates to:
+  /// **'Vücudunun bir kısmı (çoğunlukla ayaklar veya dizler) kadraj dışında kaldı. Telefonu biraz uzaklaştır, baştan ayağa görünecek şekilde çek.'**
+  String get analysisErrorBodyOutOfFrame;
+
+  /// No description provided for @analysisErrorUnsupported.
+  ///
+  /// In tr, this message translates to:
+  /// **'Bu hareket henüz analiz edilemiyor.'**
+  String get analysisErrorUnsupported;
+
+  /// No description provided for @analysisErrorUnsuitable.
+  ///
+  /// In tr, this message translates to:
+  /// **'Video okunamadı veya analiz için uygun değil. Net ve kısa bir video yükle.'**
+  String get analysisErrorUnsuitable;
+
+  /// No description provided for @analysisErrorUnavailable.
+  ///
+  /// In tr, this message translates to:
+  /// **'Analiz servisi şu an hazır değil. Biraz sonra tekrar dene.'**
+  String get analysisErrorUnavailable;
+
+  /// No description provided for @analysisErrorInterrupted.
+  ///
+  /// In tr, this message translates to:
+  /// **'Analiz yarıda kaldı çünkü sunucu yeniden başlatıldı. Videoyu tekrar yükle.'**
+  String get analysisErrorInterrupted;
+
+  /// No description provided for @warningTitle.
+  ///
+  /// In tr, this message translates to:
+  /// **'Kayıt hakkında'**
+  String get warningTitle;
+
+  /// No description provided for @warningCameraTooFar.
+  ///
+  /// In tr, this message translates to:
+  /// **'Kamera çok uzaktaydı; bir dahaki sefere biraz yaklaş.'**
+  String get warningCameraTooFar;
+
+  /// No description provided for @warningCameraTooClose.
+  ///
+  /// In tr, this message translates to:
+  /// **'Kamera çok yakındı; bir dahaki sefere biraz uzaklaş.'**
+  String get warningCameraTooClose;
+
+  /// No description provided for @warningLowPoseConfidence.
+  ///
+  /// In tr, this message translates to:
+  /// **'Vücudun bazı anlarda net algılanamadı; tüm vücudunun kadrajda olduğundan emin ol.'**
+  String get warningLowPoseConfidence;
+
+  /// No description provided for @warningBodyPartlyOut.
+  ///
+  /// In tr, this message translates to:
+  /// **'Vücudun bazı karelerde tam görünmedi; sonuçları buna göre değerlendir.'**
+  String get warningBodyPartlyOut;
+
+  /// No description provided for @warningLowFrameRate.
+  ///
+  /// In tr, this message translates to:
+  /// **'Videonun kare hızı düşük; sonuçlar daha az güvenilir olabilir.'**
+  String get warningLowFrameRate;
+
   /// No description provided for @errorServer.
   ///
   /// In tr, this message translates to:
@@ -775,6 +859,18 @@ abstract class AppLocalizations {
   /// In tr, this message translates to:
   /// **'Hareketi yavaş ve kontrollü tekrarla.'**
   String get issueGenericFix;
+
+  /// No description provided for @issueNoReps.
+  ///
+  /// In tr, this message translates to:
+  /// **'Tamamlanmış tekrar bulunamadı.'**
+  String get issueNoReps;
+
+  /// No description provided for @issueNoRepsFix.
+  ///
+  /// In tr, this message translates to:
+  /// **'Hareketi en az bir kez baştan sona tamamla ve kameranın tüm vücudunu gördüğünden emin ol.'**
+  String get issueNoRepsFix;
 
   /// No description provided for @issueNoneTitle.
   ///
@@ -1585,6 +1681,18 @@ abstract class AppLocalizations {
   /// In tr, this message translates to:
   /// **'form puanı'**
   String get resultScoreCaption;
+
+  /// No description provided for @resultNotScored.
+  ///
+  /// In tr, this message translates to:
+  /// **'Puanlanamadı'**
+  String get resultNotScored;
+
+  /// No description provided for @resultNotScoredBody.
+  ///
+  /// In tr, this message translates to:
+  /// **'Videoda tamamlanmış bir tekrar bulunamadı, bu yüzden puan verilmedi. Hareketi en az bir kez baştan sona tamamlayıp tekrar dene.'**
+  String get resultNotScoredBody;
 
   /// No description provided for @resultReps.
   ///

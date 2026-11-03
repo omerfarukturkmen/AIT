@@ -13,6 +13,8 @@ import 'package:flutter_application_1/features/onboarding/onboarding_page.dart';
 import 'package:flutter_application_1/features/result/result_page.dart';
 import 'package:flutter_application_1/features/settings/settings_page.dart';
 import 'package:flutter_application_1/l10n/form_issues.dart';
+import 'package:flutter_application_1/models/analysis_result_model.dart';
+import 'package:flutter_application_1/widgets/common.dart';
 import 'package:flutter_application_1/models/body_progress_model.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -208,6 +210,39 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text(enL10n.issueNoneTitle), findsOneWidget);
+  });
+
+  testWidgets('a video without a finished rep says it was not scored', (
+    tester,
+  ) async {
+    setScreenSize(tester, _sizes['phone']!);
+    final result = AnalysisResult.fromPayload(
+      resultPayload(score: 0, reps: 0, errors: ['no_completed_reps']),
+    );
+    await tester.pumpWidget(
+      wrapApp(ResultPage(result: result), locale: const Locale('en')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('result_not_scored')), findsOneWidget);
+    expect(find.byType(ScoreRing), findsNothing);
+    expect(find.text(enL10n.issueNoReps), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets("recording warnings are shown in the user's language", (
+    tester,
+  ) async {
+    setScreenSize(tester, _sizes['phone']!);
+    final result = AnalysisResult.fromPayload(
+      resultPayload(warningCodes: ['low_frame_rate', 'unknown_code']),
+    );
+    await tester.pumpWidget(
+      wrapApp(ResultPage(result: result), locale: const Locale('en')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text(enL10n.warningTitle), findsOneWidget);
+    expect(find.text(enL10n.warningLowFrameRate), findsOneWidget);
+    expect(find.text('unknown_code'), findsNothing);
   });
 
   testWidgets('unsupported exercises say "coming soon" and offer no analysis', (

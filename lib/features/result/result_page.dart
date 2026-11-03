@@ -5,6 +5,7 @@ import '../../app.dart';
 import '../../core/state/navigation_store.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/exercise_catalog.dart';
+import '../../l10n/analysis_messages.dart';
 import '../../l10n/app_localizations.dart';
 import '../../l10n/form_issues.dart';
 import '../../models/analysis_result_model.dart';
@@ -32,6 +33,9 @@ class ResultPage extends StatelessWidget {
     final issues = result.issueCodes
         .map((code) => formIssue(l10n, code))
         .toList();
+    final warnings = [
+      for (final code in result.warningCodes) ?analysisWarningText(l10n, code),
+    ];
     final showDepth =
         result.exercise == ExerciseId.squat &&
         (result.averageMinKneeAngle != null ||
@@ -102,6 +106,10 @@ class ResultPage extends StatelessWidget {
                         ),
                         style: context.text.bodySmall,
                       ),
+                    ],
+                    if (warnings.isNotEmpty) ...[
+                      SectionHeader(title: l10n.warningTitle),
+                      _WarningsCard(warnings: warnings),
                     ],
                     if (showDepth) ...[
                       SectionHeader(title: l10n.resultDepthTitle),
@@ -231,6 +239,38 @@ class _ScoreCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    if (!result.isScored) {
+      return AppCard(
+        key: const Key('result_not_scored'),
+        padding: const EdgeInsets.all(Gap.xl),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            IconBadge(
+              icon: Icons.do_not_disturb_on_outlined,
+              color: context.tokens.textSecondary,
+              size: 52,
+            ),
+            const SizedBox(width: Gap.lg),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(l10n.resultNotScored, style: context.text.titleLarge),
+                  const SizedBox(height: Gap.sm),
+                  Text(
+                    l10n.resultNotScoredBody,
+                    style: context.text.bodyMedium?.copyWith(
+                      color: context.tokens.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     final color = context.tokens.scoreColor(result.score);
     return AppCard(
       padding: const EdgeInsets.all(Gap.xl),
@@ -259,6 +299,39 @@ class _ScoreCard extends StatelessWidget {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Notes on recording quality; the result is still shown.
+class _WarningsCard extends StatelessWidget {
+  final List<String> warnings;
+
+  const _WarningsCard({required this.warnings});
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      key: const Key('result_warnings'),
+      child: Column(
+        children: [
+          for (final (i, warning) in warnings.indexed) ...[
+            if (i > 0) const Divider(height: Gap.xl),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                IconBadge(
+                  icon: Icons.videocam_outlined,
+                  color: context.tokens.info,
+                  size: 36,
+                ),
+                const SizedBox(width: Gap.md),
+                Expanded(child: Text(warning, style: context.text.bodyMedium)),
+              ],
+            ),
+          ],
         ],
       ),
     );

@@ -74,7 +74,8 @@ class _ScoreTrend extends StatelessWidget {
     final l10n = context.l10n;
     return ValueListenableBuilder<List<AnalysisResult>>(
       valueListenable: AnalysisHistoryStore.results,
-      builder: (context, results, _) {
+      builder: (context, all, _) {
+        final results = all.where((r) => r.isScored).toList();
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [

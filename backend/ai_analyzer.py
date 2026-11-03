@@ -51,13 +51,19 @@ class AnalysisError(Exception):
         message: str,
         *,
         status_code: int = 500,
-        user_message: str | None = None,
+        code: str | None = None,
     ) -> None:
         super().__init__(message)
         self.status_code = status_code
         self.message = message
-        # Safe, specific text for the user; None = use the generic text.
-        self.user_message = user_message
+        # Stable reason the app localizes (see FAILURE_MESSAGES); None means
+        # the generic text for status_code.
+        self.code = code
+
+    @property
+    def user_message(self) -> str | None:
+        """Safe, specific Turkish text for the user (older app versions)."""
+        return FAILURE_MESSAGES.get(self.code or "")
 
 
 NO_PERSON_MESSAGE = (
@@ -80,6 +86,19 @@ PARTIAL_BODY_MESSAGE = (
 LOW_FPS_WARNING = "Video kare hızı düşük; sonuçlar daha az güvenilir olabilir."
 PARTIAL_BODY_WARNING = "Vücudun bazı karelerde tam görünmedi; sonuçları kontrol et."
 
+# Failure and warning codes are part of the API: the app turns them into
+# text in the user's language. The Turkish texts serve older app versions.
+FAILURE_MESSAGES: dict[str, str] = {
+    "no_person_visible": NO_PERSON_MESSAGE,
+    "video_unreadable": UNREADABLE_MESSAGE,
+    "video_too_short": TOO_SHORT_MESSAGE,
+    "body_out_of_frame": PARTIAL_BODY_MESSAGE,
+}
+QUALITY_WARNING_MESSAGES: dict[str, str] = {
+    "body_partly_out_of_frame": PARTIAL_BODY_WARNING,
+    "low_frame_rate": LOW_FPS_WARNING,
+}
+
 # Thresholds measured on IMG_5512 variants (03.11.2026): an 8 fps copy still
 # counted 2/2 reps; a copy cropped below the knees had 41% usable frames and
 # lost one of two reps.
@@ -94,7 +113,7 @@ WARN_FPS = 15.0
 def _check_video_quality(
     ai_result: dict[str, Any], metrics: dict[str, Any]
 ) -> list[str]:
-    """Stops on videos whose result would mislead; returns soft warnings.
+    """Stops on videos whose result would mislead; returns soft warning codes.
 
     Order matters: a truncated or very short file is reported as such before
     it is judged on body visibility.
@@ -104,25 +123,25 @@ def _check_video_quality(
     if reported > 0 and total < reported * MIN_DECODED_FRAME_SHARE:
         raise AnalysisError(
             f"Decoded {total} of {reported} frames", status_code=422,
-            user_message=UNREADABLE_MESSAGE,
+            code="video_unreadable",
         )
     fps = float(metrics.get("fps") or 0.0)
     if 0.0 < fps < MIN_FPS:
         raise AnalysisError(
             f"Frame rate too low: {fps}", status_code=422,
-            user_message=UNREADABLE_MESSAGE,
+            code="video_unreadable",
         )
     duration = float(metrics.get("duration_seconds") or 0.0)
     if 0.0 < duration < MIN_DURATION_SECONDS:
         raise AnalysisError(
             f"Video too short: {duration}s", status_code=422,
-            user_message=TOO_SHORT_MESSAGE,
+            code="video_too_short",
         )
     if ai_result.get("analysis_status") == ANALYSIS_STATUS_INSUFFICIENT_VISIBILITY:
         # No usable body landmarks in the whole video: nothing to score.
         raise AnalysisError(
             "No usable pose landmarks in the video", status_code=422,
-            user_message=NO_PERSON_MESSAGE,
+            code="no_person_visible",
         )
     quality = metrics.get("quality") or {}
     usable = quality.get("usable_landmark_frame_ratio")
@@ -132,12 +151,12 @@ def _check_video_quality(
             raise AnalysisError(
                 f"Only {usable:.0%} of pose frames had the required landmarks",
                 status_code=422,
-                user_message=PARTIAL_BODY_MESSAGE,
+                code="body_out_of_frame",
             )
         if usable < WARN_USABLE_FRAME_RATIO:
-            warnings.append(PARTIAL_BODY_WARNING)
+            warnings.append("body_partly_out_of_frame")
     if 0.0 < fps < WARN_FPS:
-        warnings.append(LOW_FPS_WARNING)
+        warnings.append("low_frame_rate")
     return warnings
 
 
@@ -333,7 +352,13 @@ def analyze_video(video_path: str, exercise_type: str) -> dict[str, Any]:
         if valid_reps + invalid_reps == 0 and NO_REPS_CODE not in errors:
             errors.insert(0, NO_REPS_CODE)
         camera_warnings = list(metrics.get("camera_warnings") or [])
-        camera_warnings += [w for w in quality_warnings if w not in camera_warnings]
+        camera_warnings += [
+            QUALITY_WARNING_MESSAGES[code]
+            for code in quality_warnings
+            if QUALITY_WARNING_MESSAGES[code] not in camera_warnings
+        ]
+        warning_codes = list(metrics.get("camera_warning_codes") or [])
+        warning_codes += [c for c in quality_warnings if c not in warning_codes]
         feedback = _feedback_text(ai_result, score)
         rep_history = list(ai_result.get("rep_history") or [])
 
@@ -407,6 +432,7 @@ def analyze_video(video_path: str, exercise_type: str) -> dict[str, Any]:
             "invalid_reps": invalid_reps,
             "errors": errors,
             "camera_warnings": camera_warnings,
+            "warning_codes": warning_codes,
             "feedback": feedback,
             "details": details,
             "ai_confidence": mean_visibility,
@@ -429,7 +455,7 @@ def analyze_video(video_path: str, exercise_type: str) -> dict[str, Any]:
     except VideoValidationError as exc:
         logger.error("VideoValidationError\n%s", traceback.format_exc())
         raise AnalysisError(
-            str(exc), status_code=422, user_message=UNREADABLE_MESSAGE
+            str(exc), status_code=422, code="video_unreadable"
         ) from exc
     except UnsupportedExerciseError as exc:
         logger.error("UnsupportedExerciseError\n%s", traceback.format_exc())

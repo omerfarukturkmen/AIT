@@ -129,7 +129,8 @@ class ApiService {
           onStage?.call(AnalysisStage.failed);
           final data = body['data'];
           final feedback = data is Map ? data['feedback'] as String? : null;
-          throw AppException(ErrorKind.analysisFailed, feedback);
+          final code = data is Map ? data['error_code'] as String? : null;
+          throw AppException(ErrorKind.analysisFailed, feedback, code);
         }
         onStage?.call(
           status == 'processing'

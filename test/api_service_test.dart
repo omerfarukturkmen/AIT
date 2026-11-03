@@ -5,6 +5,7 @@ import 'package:flutter_application_1/core/app_exception.dart';
 import 'package:flutter_application_1/core/state/auth_store.dart';
 import 'package:flutter_application_1/data/api_service.dart';
 import 'package:flutter_application_1/data/exercise_catalog.dart';
+import 'package:flutter_application_1/l10n/app_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -162,6 +163,32 @@ void main() {
         AnalysisStage.processing,
         AnalysisStage.completed,
       ]);
+    });
+
+    test("a failure code is shown in the user's language", () async {
+      Future<void> check(String? code, AppLocalizations l10n, String text) {
+        final future = http.runWithClient(
+          () => ApiService.waitForResult(3),
+          () => MockClient(
+            (_) async => _json({
+              'status': 'failed',
+              'data': {'feedback': 'Video çok kısa.', 'error_code': code},
+            }, 200),
+          ),
+        );
+        return expectLater(
+          future,
+          throwsA(
+            isA<AppException>().having((e) => e.message(l10n), 'msg', text),
+          ),
+        );
+      }
+
+      await check('video_too_short', enL10n, enL10n.analysisErrorTooShort);
+      await check('video_too_short', trL10n, trL10n.analysisErrorTooShort);
+      // Codes from a newer server fall back to the Turkish text / generic.
+      await check('brand_new_code', trL10n, 'Video çok kısa.');
+      await check('brand_new_code', enL10n, enL10n.errorAnalysisFailed);
     });
 
     test('a failed analysis surfaces the safe server message', () async {
