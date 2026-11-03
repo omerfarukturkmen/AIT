@@ -1,19 +1,33 @@
-# flutter_application_1
+# AIT
 
-A new Flutter project.
+Yapay zekâ destekli egzersiz form analizi. Kullanıcı squat veya şınav
+videosunu yükler ya da kamerayla kaydeder; uygulama tekrar sayısını, form
+puanını, hataları ve önerileri gösterir.
 
-## Getting Started
+| Klasör | İçerik |
+| --- | --- |
+| `lib/` | Flutter uygulaması (Android, iOS, web) |
+| `backend/` | FastAPI sunucusu: kimlik doğrulama, video yükleme, analiz geçmişi |
+| `ai/` | Poz tespiti ve hareket analizi (MediaPipe); ayrıntılar `ai/README_AI.md` |
+| `docs/` | Güvenlik kontrolleri ve proje belgeleri |
 
-This project is a starting point for a Flutter application.
+Uygulama kimliği: `com.ait.fitness` (Android ve iOS), görünen ad: **AIT**.
 
-A few resources to get you started if this is your first Flutter project:
+## Hızlı başlangıç
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+```bash
+# 1. Backend
+cd backend
+pip install -r requirements.txt
+python ../ai/scripts/download_pose_model.py   # analiz modeli (bir kez)
+uvicorn main:app --reload
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+# 2. Uygulama (ayrı terminalde, proje kökünde)
+flutter pub get
+flutter run -d chrome
+```
+
+Testler: `cd backend && pytest`, `cd ai && pytest`, `flutter test`.
 
 ## Kimlik doğrulama
 
@@ -39,13 +53,35 @@ flutter run
 | `AUTH_SECRET_KEY` | Oturum token'larını imzalar. Tanımlı değilse her açılışta geçici bir anahtar üretilir ve sunucu yeniden başlayınca tüm oturumlar düşer. Üretimde zorunlu. |
 | `ALLOWED_ORIGINS` | Web istemcisi için izin verilen origin'ler (virgülle). Boşsa yalnızca `localhost` / `127.0.0.1` kabul edilir. |
 | `MAX_UPLOAD_MB` | Video yükleme sınırı (varsayılan 200). |
-| `DATABASE_URL` | Veritabanı adresi (varsayılan `sqlite:///./test.db`). |
+| `DATABASE_URL` | Veritabanı adresi (varsayılan `sqlite:///./test.db`; canlıda PostgreSQL: `postgresql+psycopg://...`). |
+| `VIDEO_RETENTION_DAYS` | Yüklenen videoların saklanma süresi, gün (varsayılan 30; `0` = süresiz). Analiz sonuçları silinmez. |
+| `ANALYSIS_WORKERS` | Aynı anda çalışan analiz sayısı (varsayılan 2). |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM`, `SMTP_STARTTLS` | Şifre sıfırlama ve e-posta doğrulama kodlarının gönderimi. Geliştirmede tanımlı değilse e-postalar `backend/dev_outbox/` klasörüne `.eml` olarak yazılır; canlıda zorunlu. |
+| `GOOGLE_CLIENT_IDS`, `APPLE_CLIENT_IDS` | Google/Apple ile giriş için istemci kimlikleri (virgülle). Tanımlı değilse bu girişler "yapılandırılmadı" yanıtı verir. Kurulum: `docs/SOSYAL_GIRIS_KURULUMU.md`. |
 | `UPLOAD_FOLDER` | Videoların kaydedildiği klasör (varsayılan `uploaded_videos`). |
 | `APP_ENV` | `production` olduğunda `/docs` ve `/openapi.json` kapanır, HSTS başlığı eklenir. |
 | `ALLOWED_HOSTS` | API'nin yanıt vereceği alan adları (virgülle); başka `Host` başlıkları 400 alır. |
 
 Flutter tarafında backend adresi: `--dart-define=API_BASE_URL=http://10.0.2.2:8000`
 (Android emülatörü) gibi verilir.
+
+### Veritabanı değişiklikleri
+
+Şema Alembic ile sürümlenir (`backend/migrations/`); sunucu açılırken
+bekleyen değişiklikleri kendisi uygular. Modelde (`models.py`) değişiklik
+yaptıktan sonra yeni bir migration oluşturun:
+
+```bash
+cd backend
+alembic revision --autogenerate -m "ne değişti"
+alembic upgrade head
+```
+
+### Video analizi
+
+Video yüklendiğinde sunucu hemen `202` ve `analysis_id` döner; analiz arka
+planda çalışır, uygulama sonucu `GET /analysis/{id}` ile sorgular. Kullanıcının
+geçmişi: `GET /analyses`. Aynı anda kullanıcı başına en fazla 3 analiz yapılır.
 
 ### Güvenlik
 
@@ -98,16 +134,42 @@ olmalıdır; `http://` yalnızca yerel geliştirme içindir.
 3. Uygulamayı `--dart-define=API_BASE_URL=https://api.ornek.com` ile derleyin.
    Android release derlemesi düz `http` trafiğine zaten izin vermez.
 
-### Henüz eksik olanlar
+### Yayından önce yapılması gerekenler
 
-- **Google / Apple ile giriş:** Butonlar hazır, ancak sağlayıcı yapılandırılmadığı
-  için kullanıcıya "henüz yapılandırılmadı" mesajı gösterir. Etkinleştirmek için
-  `google_sign_in` ve `sign_in_with_apple` paketlerini ekleyin; Google Cloud
-  Console'da OAuth istemci kimliklerini (Android SHA-1, iOS URL şeması, web
-  istemci kimliği), Apple Developer'da "Sign in with Apple" yetkisini ve Services
-  ID'yi oluşturun; backend'e ID token'ı doğrulayan `/auth/google` ve
-  `/auth/apple` uçlarını ekleyin; ardından
-  `AuthService.signInWithProvider` metodunu güncelleyin.
-- **Şifre sıfırlama:** Backend ucu ve e-posta gönderimi yok; "Şifremi unuttum"
-  bu durumu açıklayan bir diyalog gösterir.
-- **Kullanım Koşulları / Gizlilik Politikası** metinleri henüz eklenmedi.
+- **Google / Apple ile giriş:** Kod hazır; istemci kimlikleri girilene kadar
+  butonlar "henüz kullanılamıyor" der. Kurulum: `docs/SOSYAL_GIRIS_KURULUMU.md`.
+- **E-posta gönderimi:** Şifre sıfırlama ve e-posta doğrulama çalışıyor;
+  canlıda `SMTP_*` değişkenleri tanımlanmalı.
+- **Yasal metinler:** Gizlilik Politikası, KVKK Aydınlatma Metni ve Kullanım
+  Koşulları uygulamada TR/EN olarak var. `lib/core/legal_info.dart` içindeki
+  veri sorumlusu ve iletişim bilgisi doldurulmalı ve metinler bir hukuk
+  danışmanına kontrol ettirilmeli.
+- **Sunucu:** `docs/DAGITIM.md` (Docker, PostgreSQL, otomatik HTTPS).
+
+## Uygulama (Flutter)
+
+- **Dil:** Türkçe ve İngilizce. Metinler `lib/l10n/app_tr.arb` ve
+  `app_en.arb` dosyalarındadır; yeni metin eklerken ikisine de ekleyip
+  `flutter gen-l10n` çalıştırın.
+- **Tema:** Açık, koyu ve sistem; tasarım değerleri `lib/core/theme/app_theme.dart`.
+- **Derleme parametreleri** (`--dart-define`):
+
+| Parametre | Açıklama |
+| --- | --- |
+| `API_BASE_URL` | Backend adresi (varsayılan `http://127.0.0.1:8000`; Android emülatöründe `http://10.0.2.2:8000`). |
+| `GOOGLE_SERVER_CLIENT_ID`, `GOOGLE_IOS_CLIENT_ID` | Google ile giriş. |
+| `APPLE_SIGN_IN_ENABLED` | `true` ise iOS/macOS'ta Apple ile giriş açılır. |
+
+- **Analiz edilebilen hareketler:** Squat ve şınav. Diğer egzersizler
+  kütüphanede "Yakında" olarak görünür.
+
+## Testler ve CI
+
+```bash
+cd backend && pytest        # API, güvenlik, migration, sosyal giriş
+cd ai && pytest             # hareket analizi
+flutter analyze lib test && flutter test
+```
+
+GitHub Actions (`.github/workflows/ci.yml`) her push ve pull request'te bu
+testleri ve `pip-audit` bağımlılık taramasını çalıştırır.

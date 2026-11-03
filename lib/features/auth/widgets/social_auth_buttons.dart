@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/services/auth_service.dart';
-import 'auth_palette.dart';
+import '../../../app.dart';
+import '../../../core/services/social_sign_in.dart';
+import '../../../core/theme/app_theme.dart';
 
 /// Google and Apple buttons styled after each brand's sign-in guidelines:
 /// Google uses the four-color "G" on a neutral surface; Apple uses a solid
@@ -9,7 +10,7 @@ import 'auth_palette.dart';
 class SocialAuthButtons extends StatelessWidget {
   final bool isSignUp;
   final bool enabled;
-  final ValueChanged<SocialAuthProvider> onPressed;
+  final ValueChanged<SocialProvider> onPressed;
 
   const SocialAuthButtons({
     super.key,
@@ -20,38 +21,34 @@ class SocialAuthButtons extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final palette = AuthPalette.of(context);
-    final action = isSignUp ? 'kayıt ol' : 'devam et';
+    final l10n = context.l10n;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _SocialButton(
-          label: 'Google ile $action',
+          label: isSignUp ? l10n.authGoogleSignUp : l10n.authGoogleContinue,
           logo: const GoogleLogo(size: 18),
-          background: palette.isDark ? const Color(0xFF131314) : Colors.white,
-          foreground: palette.isDark
+          background: isDark ? const Color(0xFF131314) : Colors.white,
+          foreground: isDark
               ? const Color(0xFFE3E3E3)
               : const Color(0xFF1F1F1F),
-          border: palette.isDark
-              ? const Color(0xFF8E918F)
-              : const Color(0xFF747775),
-          onPressed: enabled
-              ? () => onPressed(SocialAuthProvider.google)
-              : null,
+          border: isDark ? const Color(0xFF8E918F) : const Color(0xFF747775),
+          onPressed: enabled ? () => onPressed(SocialProvider.google) : null,
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: Gap.md),
         _SocialButton(
-          label: 'Apple ile $action',
+          label: isSignUp ? l10n.authAppleSignUp : l10n.authAppleContinue,
           logo: Icon(
             Icons.apple,
             size: 21,
-            color: palette.isDark ? Colors.black : Colors.white,
+            color: isDark ? Colors.black : Colors.white,
           ),
-          background: palette.isDark ? Colors.white : Colors.black,
-          foreground: palette.isDark ? Colors.black : Colors.white,
-          border: palette.isDark ? Colors.white : Colors.black,
-          onPressed: enabled ? () => onPressed(SocialAuthProvider.apple) : null,
+          background: isDark ? Colors.white : Colors.black,
+          foreground: isDark ? Colors.black : Colors.white,
+          border: isDark ? Colors.white : Colors.black,
+          onPressed: enabled ? () => onPressed(SocialProvider.apple) : null,
         ),
       ],
     );
@@ -80,37 +77,37 @@ class _SocialButton extends StatelessWidget {
     return OutlinedButton(
       onPressed: onPressed,
       style: ButtonStyle(
-        minimumSize: const WidgetStatePropertyAll(Size.fromHeight(48)),
+        minimumSize: const WidgetStatePropertyAll(Size.fromHeight(50)),
         padding: const WidgetStatePropertyAll(
-          EdgeInsets.symmetric(horizontal: 16),
+          EdgeInsets.symmetric(horizontal: Gap.lg),
         ),
         backgroundColor: WidgetStatePropertyAll(background),
         foregroundColor: WidgetStatePropertyAll(foreground),
         overlayColor: WidgetStateProperty.resolveWith(
-          (states) => states.contains(WidgetState.pressed)
-              ? foreground.withValues(alpha: 0.12)
-              : foreground.withValues(alpha: 0.06),
+          (states) => foreground.withValues(
+            alpha: states.contains(WidgetState.pressed) ? 0.12 : 0.06,
+          ),
         ),
         side: WidgetStateProperty.resolveWith(
           (states) => BorderSide(
             color: states.contains(WidgetState.focused)
-                ? const Color(0xFF7C3AED)
+                ? context.colors.primary
                 : border,
             width: states.contains(WidgetState.focused) ? 2 : 1,
           ),
         ),
         shape: WidgetStatePropertyAll(
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.md)),
         ),
-        textStyle: const WidgetStatePropertyAll(
-          TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+        textStyle: WidgetStatePropertyAll(
+          context.text.labelLarge?.copyWith(fontSize: 15),
         ),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           SizedBox(width: 22, child: Center(child: logo)),
-          const SizedBox(width: 12),
+          const SizedBox(width: Gap.md),
           Flexible(child: Text(label, overflow: TextOverflow.ellipsis)),
         ],
       ),

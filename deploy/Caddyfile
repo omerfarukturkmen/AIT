@@ -1,0 +1,9 @@
+# Caddy obtains and renews the TLS certificate for API_DOMAIN automatically.
+{$API_DOMAIN} {
+	encode gzip
+	# Videos up to MAX_UPLOAD_MB (200 MB) plus form overhead.
+	request_body {
+		max_size 210MB
+	}
+	reverse_proxy api:8000
+}

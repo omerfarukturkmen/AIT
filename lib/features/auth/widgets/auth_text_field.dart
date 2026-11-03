@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'auth_palette.dart';
+import '../../../app.dart';
+import '../../../core/theme/app_theme.dart';
 
+/// Labeled text field used on all auth screens, with an optional
+/// show/hide toggle for passwords.
 class AuthTextField extends StatefulWidget {
   final TextEditingController controller;
   final String label;
@@ -48,17 +51,9 @@ class AuthTextField extends StatefulWidget {
 class _AuthTextFieldState extends State<AuthTextField> {
   bool _obscured = true;
 
-  OutlineInputBorder _border(Color color, [double width = 1]) {
-    return OutlineInputBorder(
-      borderRadius: BorderRadius.circular(14),
-      borderSide: BorderSide(color: color, width: width),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final palette = AuthPalette.of(context);
-
+    final l10n = context.l10n;
     return TextFormField(
       controller: widget.controller,
       focusNode: widget.focusNode,
@@ -79,69 +74,75 @@ class _AuthTextFieldState extends State<AuthTextField> {
       validator: widget.validator,
       onFieldSubmitted: widget.onFieldSubmitted,
       onChanged: widget.onChanged,
-      cursorColor: palette.focus,
-      style: TextStyle(
-        color: palette.text,
-        fontSize: 15.5,
-        fontWeight: FontWeight.w500,
-      ),
+      style: context.text.bodyLarge,
       decoration: InputDecoration(
         labelText: widget.label,
         hintText: widget.hint,
-        labelStyle: TextStyle(color: palette.textMuted),
-        floatingLabelStyle: WidgetStateTextStyle.resolveWith(
-          (states) => TextStyle(
-            color: states.contains(WidgetState.error)
-                ? palette.error
-                : states.contains(WidgetState.focused)
-                ? palette.focus
-                : palette.textMuted,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        hintStyle: TextStyle(
-          color: palette.textMuted.withValues(alpha: 0.75),
-          fontWeight: FontWeight.w400,
-        ),
-        filled: true,
-        fillColor: palette.fieldFill,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 14,
-          vertical: 16,
-        ),
+        errorMaxLines: 2,
         prefixIcon: Icon(widget.icon, size: 20),
-        prefixIconColor: WidgetStateColor.resolveWith(
-          (states) => states.contains(WidgetState.focused)
-              ? palette.focus
-              : states.contains(WidgetState.error)
-              ? palette.error
-              : palette.textMuted,
-        ),
         suffixIcon: widget.isPassword
             ? IconButton(
                 onPressed: () => setState(() => _obscured = !_obscured),
-                tooltip: _obscured ? 'Şifreyi göster' : 'Şifreyi gizle',
+                tooltip: _obscured
+                    ? l10n.authShowPassword
+                    : l10n.authHidePassword,
                 icon: Icon(
                   _obscured
                       ? Icons.visibility_outlined
                       : Icons.visibility_off_outlined,
                   size: 20,
-                  color: palette.textMuted,
                 ),
               )
             : null,
-        errorStyle: TextStyle(
-          color: palette.error,
-          fontSize: 12.5,
-          fontWeight: FontWeight.w600,
+      ),
+    );
+  }
+}
+
+/// Primary button that shows a spinner and stays disabled while loading.
+class AuthSubmitButton extends StatelessWidget {
+  final String label;
+  final String loadingLabel;
+  final bool isLoading;
+  final VoidCallback? onPressed;
+
+  const AuthSubmitButton({
+    super.key,
+    required this.label,
+    required this.loadingLabel,
+    required this.onPressed,
+    this.isLoading = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      enabled: !isLoading && onPressed != null,
+      label: isLoading ? loadingLabel : label,
+      excludeSemantics: true,
+      child: FilledButton(
+        onPressed: isLoading ? null : onPressed,
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 160),
+          child: isLoading
+              ? Row(
+                  key: const ValueKey('loading'),
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.2,
+                        color: context.colors.onSurface.withValues(alpha: 0.6),
+                      ),
+                    ),
+                    const SizedBox(width: Gap.md),
+                    Text(loadingLabel),
+                  ],
+                )
+              : Text(label, key: const ValueKey('label')),
         ),
-        errorMaxLines: 2,
-        border: _border(palette.fieldBorder),
-        enabledBorder: _border(palette.fieldBorder),
-        disabledBorder: _border(palette.fieldBorder.withValues(alpha: 0.5)),
-        focusedBorder: _border(palette.focus, 1.8),
-        errorBorder: _border(palette.error),
-        focusedErrorBorder: _border(palette.error, 1.8),
       ),
     );
   }

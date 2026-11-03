@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 
-import '../../core/constants/app_colors.dart';
-import '../../core/services/auth_service.dart';
+import '../../app.dart';
+import '../../core/app_exception.dart';
+import '../../core/services/social_sign_in.dart';
+import '../../core/state/auth_store.dart';
+import '../../core/state/app_settings_store.dart';
+import '../../core/theme/app_theme.dart';
 import '../../models/auth_session_model.dart';
-import '../../widgets/glass_card.dart';
-import '../../widgets/premium_background.dart';
+import '../../widgets/app_card.dart';
+import '../../widgets/common.dart';
 import '../navigation/main_navigation_page.dart';
 import 'login_form.dart';
 import 'register_form.dart';
-import 'widgets/auth_palette.dart';
 
 enum AuthMode { login, register }
 
@@ -32,6 +35,7 @@ class _AuthPageState extends State<AuthPage> {
   static const double _wideBreakpoint = 920;
 
   late AuthMode _mode = widget.initialMode;
+  bool _socialInProgress = false;
 
   void _switchTo(AuthMode mode) => setState(() => _mode = mode);
 
@@ -43,129 +47,109 @@ class _AuthPageState extends State<AuthPage> {
       ),
       (_) => false,
     );
-    messenger.showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.check_circle_rounded, color: AppColors.neonGreen),
-            const SizedBox(width: 10),
-            Expanded(child: Text(message)),
-          ],
-        ),
-      ),
-    );
+    messenger.showSnackBar(SnackBar(content: Text(message)));
   }
 
-  Future<void> _onSocialPressed(SocialAuthProvider provider) async {
+  Future<void> _onSocialPressed(SocialProvider provider) async {
+    if (_socialInProgress) return;
+    final l10n = context.l10n;
     final messenger = ScaffoldMessenger.of(context);
-    try {
-      final session = await AuthService.signInWithProvider(provider);
-      if (!mounted) return;
-      _onAuthenticated(session, 'Hoş geldin, ${session.user.firstName}!');
-    } on AuthException catch (error) {
+    final providerName = provider == SocialProvider.google ? 'Google' : 'Apple';
+
+    if (!SocialSignIn.isAvailable(provider)) {
       messenger
         ..hideCurrentSnackBar()
         ..showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(
-                  Icons.info_outline_rounded,
-                  color: AppColors.electricBlue,
-                ),
-                const SizedBox(width: 10),
-                Expanded(child: Text(error.message)),
-              ],
-            ),
-          ),
+          SnackBar(content: Text(l10n.authSocialNotConfigured(providerName))),
         );
+      return;
+    }
+
+    setState(() => _socialInProgress = true);
+    try {
+      final session = await SocialSignIn.signIn(provider);
+      if (session == null || !mounted) return; // cancelled
+      await AuthStore.save(session, remember: true);
+      if (!mounted) return;
+      _onAuthenticated(session, l10n.authWelcomeBack(session.user.firstName));
+    } on AppException catch (error) {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(error.message(l10n))));
+    } finally {
+      if (mounted) setState(() => _socialInProgress = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: PremiumBackground(
-        child: SafeArea(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final isWide = constraints.maxWidth >= _wideBreakpoint;
-              final card = _buildFormCard(context, compact: !isWide);
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final isWide = constraints.maxWidth >= _wideBreakpoint;
+            final card = _buildFormCard(context, compact: !isWide);
 
-              return SingleChildScrollView(
-                keyboardDismissBehavior:
-                    ScrollViewKeyboardDismissBehavior.onDrag,
-                padding: EdgeInsets.symmetric(
-                  horizontal: isWide ? 48 : 16,
-                  vertical: isWide ? 40 : 20,
+            return SingleChildScrollView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              padding: EdgeInsets.symmetric(
+                horizontal: isWide ? 48 : Gap.lg,
+                vertical: isWide ? 40 : Gap.lg,
+              ),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight - (isWide ? 80 : 32),
                 ),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minHeight: constraints.maxHeight - (isWide ? 80 : 40),
-                  ),
-                  child: Center(
-                    child: isWide
-                        ? ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 1080),
-                            child: Row(
-                              children: [
-                                const Expanded(child: _BrandPanel()),
-                                const SizedBox(width: 56),
-                                SizedBox(width: 460, child: card),
-                              ],
-                            ),
-                          )
-                        : ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 460),
-                            child: Column(
-                              children: [
-                                const _CompactBrand(),
-                                const SizedBox(height: 20),
-                                card,
-                              ],
-                            ),
+                child: Center(
+                  child: isWide
+                      ? ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 1080),
+                          child: Row(
+                            children: [
+                              const Expanded(child: _BrandPanel()),
+                              const SizedBox(width: 56),
+                              SizedBox(width: 460, child: card),
+                            ],
                           ),
-                  ),
+                        )
+                      : ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 460),
+                          child: Column(
+                            children: [
+                              const _CompactBrand(),
+                              const SizedBox(height: Gap.lg),
+                              card,
+                            ],
+                          ),
+                        ),
                 ),
-              );
-            },
-          ),
+              ),
+            );
+          },
         ),
       ),
     );
   }
 
   Widget _buildFormCard(BuildContext context, {required bool compact}) {
-    final palette = AuthPalette.of(context);
+    final l10n = context.l10n;
     final isLogin = _mode == AuthMode.login;
 
-    return GlassCard(
-      enableHover: false,
-      radius: 24,
+    return AppCard(
       padding: EdgeInsets.fromLTRB(
-        compact ? 20 : 32,
-        compact ? 26 : 34,
-        compact ? 20 : 32,
-        compact ? 14 : 20,
+        compact ? Gap.lg + 4 : 32,
+        compact ? Gap.xl : 34,
+        compact ? Gap.lg + 4 : 32,
+        compact ? Gap.md : Gap.lg,
       ),
       child: AnimatedSize(
-        duration: const Duration(milliseconds: 260),
+        duration: const Duration(milliseconds: 240),
         curve: Curves.easeOutCubic,
         alignment: Alignment.topCenter,
         child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 240),
-          switchInCurve: Curves.easeOutCubic,
-          switchOutCurve: Curves.easeInCubic,
-          transitionBuilder: (child, animation) => FadeTransition(
-            opacity: animation,
-            child: SlideTransition(
-              position: Tween(
-                begin: const Offset(0, 0.02),
-                end: Offset.zero,
-              ).animate(animation),
-              child: child,
-            ),
-          ),
+          duration: const Duration(milliseconds: 220),
+          transitionBuilder: (child, animation) =>
+              FadeTransition(opacity: animation, child: child),
           layoutBuilder: (current, previous) => Stack(
             alignment: Alignment.topCenter,
             children: [...previous, ?current],
@@ -177,29 +161,20 @@ class _AuthPageState extends State<AuthPage> {
               Semantics(
                 header: true,
                 child: Text(
-                  isLogin ? 'Tekrar hoş geldin' : 'Hesabını oluştur',
-                  style: TextStyle(
-                    color: palette.text,
-                    fontSize: compact ? 24 : 28,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.4,
-                  ),
+                  isLogin ? l10n.authLoginTitle : l10n.authRegisterTitle,
+                  style: compact
+                      ? context.text.headlineSmall
+                      : context.text.headlineMedium,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: Gap.sm),
               Text(
-                isLogin
-                    ? 'Antrenmanlarına kaldığın yerden devam etmek için '
-                          'hesabına giriş yap.'
-                    : 'Form analizlerini kaydet, ilerlemeni her cihazdan '
-                          'takip et.',
-                style: TextStyle(
-                  color: palette.textMuted,
-                  fontSize: 14.5,
-                  height: 1.45,
+                isLogin ? l10n.authLoginSubtitle : l10n.authRegisterSubtitle,
+                style: context.text.bodyMedium?.copyWith(
+                  color: context.tokens.textSecondary,
                 ),
               ),
-              const SizedBox(height: 28),
+              const SizedBox(height: Gap.xl),
               if (isLogin)
                 LoginForm(
                   onAuthenticated: _onAuthenticated,
@@ -220,64 +195,35 @@ class _AuthPageState extends State<AuthPage> {
   }
 }
 
-class _BrandMark extends StatelessWidget {
-  final double size;
-
-  const _BrandMark({required this.size});
-
-  @override
-  Widget build(BuildContext context) {
-    return ExcludeSemantics(
-      child: Container(
-        height: size,
-        width: size,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(size * 0.3),
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [AppColors.primary, Color(0xFF3B82F6)],
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.primary.withValues(alpha: 0.3),
-              blurRadius: size * 0.4,
-              offset: Offset(0, size * 0.15),
-            ),
-          ],
-        ),
-        child: Icon(
-          Icons.fitness_center_rounded,
-          color: Colors.white,
-          size: size * 0.5,
-        ),
-      ),
-    );
-  }
-}
-
 class _CompactBrand extends StatelessWidget {
   const _CompactBrand();
 
   @override
   Widget build(BuildContext context) {
-    final palette = AuthPalette.of(context);
-
     return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const _BrandMark(size: 40),
-        const SizedBox(width: 12),
-        Text(
-          'AIT Fitness',
-          style: TextStyle(
-            color: palette.text,
-            fontSize: 20,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.2,
-          ),
-        ),
+        const BrandMark(size: 36),
+        const SizedBox(width: Gap.md),
+        Text(context.l10n.appName, style: context.text.titleLarge),
+        const Spacer(),
+        const _LanguageButton(),
       ],
+    );
+  }
+}
+
+class _LanguageButton extends StatelessWidget {
+  const _LanguageButton();
+
+  @override
+  Widget build(BuildContext context) {
+    final next = AppSettingsStore.settings.value.languageCode == 'tr'
+        ? 'en'
+        : 'tr';
+    return TextButton.icon(
+      onPressed: () => AppSettingsStore.setLanguage(next),
+      icon: const Icon(Icons.language_rounded, size: 18),
+      label: Text(next.toUpperCase()),
     );
   }
 }
@@ -287,23 +233,22 @@ class _BrandPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final palette = AuthPalette.of(context);
-
-    const features = [
+    final l10n = context.l10n;
+    final features = [
       (
         Icons.videocam_outlined,
-        'Canlı form analizi',
-        'Kamera karşısında anlık skor ve tekrar takibi.',
+        l10n.authFeatureCaptureTitle,
+        l10n.authFeatureCaptureBody,
       ),
       (
         Icons.insights_rounded,
-        'Detaylı video raporları',
-        'Yüklediğin videolardan hata ve öneri raporu.',
+        l10n.authFeatureFeedbackTitle,
+        l10n.authFeatureFeedbackBody,
       ),
       (
-        Icons.record_voice_over_outlined,
-        'Sesli koçluk',
-        'Ekrana bakmadan anlık sesli geri bildirim.',
+        Icons.trending_up_rounded,
+        l10n.authFeatureProgressTitle,
+        l10n.authFeatureProgressBody,
       ),
     ];
 
@@ -313,71 +258,44 @@ class _BrandPanel extends StatelessWidget {
       children: [
         Row(
           children: [
-            const _BrandMark(size: 48),
-            const SizedBox(width: 14),
-            Text(
-              'AIT Fitness',
-              style: TextStyle(
-                color: palette.text,
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
+            const BrandMark(size: 44),
+            const SizedBox(width: Gap.md + 2),
+            Text(l10n.appName, style: context.text.headlineSmall),
+            const Spacer(),
+            const _LanguageButton(),
           ],
         ),
         const SizedBox(height: 40),
         Text(
-          'Formunu yapay zekâ ile\nmükemmelleştir.',
-          style: TextStyle(
-            color: palette.text,
-            fontSize: 40,
-            height: 1.15,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -1,
+          l10n.authHeroTitle,
+          style: context.text.displaySmall?.copyWith(fontSize: 40),
+        ),
+        const SizedBox(height: Gap.lg),
+        Text(
+          l10n.authHeroBody,
+          style: context.text.bodyLarge?.copyWith(
+            color: context.tokens.textSecondary,
           ),
         ),
-        const SizedBox(height: 16),
-        Text(
-          'Her tekrarda daha doğru hareket et; ilerlemeni tek bir yerden '
-          'takip et.',
-          style: TextStyle(color: palette.textMuted, fontSize: 16, height: 1.5),
-        ),
         const SizedBox(height: 36),
-        for (final (icon, title, description) in features)
+        for (final (icon, title, body) in features)
           Padding(
-            padding: const EdgeInsets.only(bottom: 20),
+            padding: const EdgeInsets.only(bottom: Gap.lg + 4),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  height: 40,
-                  width: 40,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(icon, color: palette.focus, size: 21),
-                ),
-                const SizedBox(width: 14),
+                IconBadge(icon: icon),
+                const SizedBox(width: Gap.md + 2),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      Text(title, style: context.text.titleSmall),
+                      const SizedBox(height: 2),
                       Text(
-                        title,
-                        style: TextStyle(
-                          color: palette.text,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        description,
-                        style: TextStyle(
-                          color: palette.textMuted,
-                          fontSize: 14,
-                          height: 1.4,
+                        body,
+                        style: context.text.bodyMedium?.copyWith(
+                          color: context.tokens.textSecondary,
                         ),
                       ),
                     ],

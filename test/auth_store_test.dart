@@ -1,10 +1,11 @@
 import 'package:flutter_application_1/core/state/analysis_history_store.dart';
 import 'package:flutter_application_1/core/state/auth_store.dart';
-import 'package:flutter_application_1/models/analysis_result_model.dart';
 import 'package:flutter_application_1/models/auth_session_model.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'helpers.dart';
 
 const _session = AuthSession(
   accessToken: 'secret-token',
@@ -56,9 +57,7 @@ void main() {
 
   test('sign out clears storage and the previous user\'s results', () async {
     await AuthStore.save(_session, remember: true);
-    AnalysisHistoryStore.addResult(
-      AnalysisResult.fromJson({'exerciseName': 'Squat', 'score': 80}),
-    );
+    AnalysisHistoryStore.addResult(sampleResult());
     expect(AnalysisHistoryStore.results.value, hasLength(1));
 
     await AuthStore.signOut();

@@ -73,3 +73,6 @@ backend/test.db
 
 backend/uploaded_videos/*
 !backend/uploaded_videos/.gitkeep
+
+# Development e-mail outbox (contains one-time codes)
+backend/dev_outbox/

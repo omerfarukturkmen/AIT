@@ -1,201 +1,205 @@
 import 'package:flutter/material.dart';
 
-import '../../data/exercise_details_data.dart';
-import '../../models/exercise_detail_model.dart';
-import '../../widgets/glass_card.dart';
-import '../../widgets/premium_background.dart';
-import '../../core/constants/app_colors.dart';
+import '../../app.dart';
 import '../../core/state/favorite_exercises_store.dart';
+import '../../core/state/selected_exercise_store.dart';
+import '../../core/theme/app_theme.dart';
+import '../../data/exercise_catalog.dart';
+import '../../widgets/app_card.dart';
+import '../../widgets/common.dart';
+import '../../widgets/page_scaffold.dart';
+import '../analysis/start_analysis.dart';
 
 class ExerciseDetailPage extends StatelessWidget {
-  final String exerciseName;
+  final ExerciseId exercise;
 
-  const ExerciseDetailPage({super.key, required this.exerciseName});
+  const ExerciseDetailPage({super.key, required this.exercise});
 
   @override
   Widget build(BuildContext context) {
-    final ExerciseDetail detail = getExerciseDetailByName(exerciseName);
+    final l10n = context.l10n;
 
     return Scaffold(
-      body: PremiumBackground(
-        child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
+      appBar: AppBar(
+        title: Text(exercise.title(l10n)),
+        actions: [
+          ValueListenableBuilder<Set<ExerciseId>>(
+            valueListenable: FavoriteExercisesStore.favorites,
+            builder: (context, favorites, _) {
+              final isFavorite = favorites.contains(exercise);
+              return IconButton(
+                onPressed: () => FavoriteExercisesStore.toggle(exercise),
+                tooltip: isFavorite
+                    ? l10n.detailUnfavorite
+                    : l10n.detailFavorite,
+                icon: Icon(
+                  isFavorite
+                      ? Icons.favorite_rounded
+                      : Icons.favorite_border_rounded,
+                  color: isFavorite ? context.tokens.danger : null,
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(
+            Gap.page,
+            Gap.sm,
+            Gap.page,
+            Gap.xxl,
+          ),
+          children: [
+            Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxWidth: PageScaffold.maxContentWidth,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.arrow_back_rounded),
-                    ),
-                    Expanded(
-                      child: Text(
-                        detail.name,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w900,
+                    Row(
+                      children: [
+                        IconBadge(icon: exercise.icon, size: 56),
+                        const SizedBox(width: Gap.lg),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                exercise.title(l10n),
+                                style: context.text.headlineSmall,
+                              ),
+                              const SizedBox(height: Gap.xs),
+                              Pill(
+                                label: exercise.analysisSupported
+                                    ? l10n.homeAiAnalysis
+                                    : l10n.commonComingSoon,
+                                color: exercise.analysisSupported
+                                    ? context.colors.primary
+                                    : null,
+                              ),
+                            ],
+                          ),
                         ),
+                      ],
+                    ),
+                    const SizedBox(height: Gap.lg),
+                    Text(
+                      exercise.description(l10n),
+                      style: context.text.bodyLarge?.copyWith(
+                        color: context.tokens.textSecondary,
                       ),
                     ),
-                    ValueListenableBuilder<Set<String>>(
-                      valueListenable: FavoriteExercisesStore.favorites,
-                      builder: (context, favorites, child) {
-                        final isFavorite = favorites.contains(detail.name);
-
-                        return IconButton(
-                          onPressed: () {
-                            FavoriteExercisesStore.toggleFavorite(detail.name);
-
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  isFavorite
-                                      ? '${detail.name} favorilerden çıkarıldı.'
-                                      : '${detail.name} favorilere eklendi.',
-                                ),
-                              ),
-                            );
-                          },
-                          icon: Icon(
-                            isFavorite
-                                ? Icons.favorite_rounded
-                                : Icons.favorite_border_rounded,
-                            color: isFavorite
-                                ? Colors.redAccent
-                                : AppColors.textSoft,
+                    if (exercise.analysisSupported) ...[
+                      const SizedBox(height: Gap.lg),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () {
+                                SelectedExerciseStore.select(exercise);
+                                StartAnalysis.fromGallery(context, exercise);
+                              },
+                              icon: const Icon(Icons.upload_rounded),
+                              label: Text(l10n.homeUploadVideo),
+                            ),
                           ),
-                        );
-                      },
+                          const SizedBox(width: Gap.md),
+                          Expanded(
+                            child: FilledButton.icon(
+                              onPressed: () {
+                                SelectedExerciseStore.select(exercise);
+                                StartAnalysis.withCamera(context, exercise);
+                              },
+                              icon: const Icon(Icons.videocam_rounded),
+                              label: Text(l10n.homeRecordVideo),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ] else ...[
+                      const SizedBox(height: Gap.lg),
+                      AppCard(
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.schedule_rounded,
+                              color: context.tokens.textSecondary,
+                            ),
+                            const SizedBox(width: Gap.md),
+                            Expanded(
+                              child: Text(
+                                l10n.detailComingSoonBody,
+                                style: context.text.bodyMedium,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    SectionHeader(title: l10n.detailMuscles),
+                    Wrap(
+                      spacing: Gap.sm,
+                      runSpacing: Gap.sm,
+                      children: [
+                        for (final muscle in exercise.targetMuscles(l10n))
+                          Chip(label: Text(muscle)),
+                      ],
+                    ),
+                    SectionHeader(title: l10n.detailMistakes),
+                    _BulletCard(
+                      items: exercise.commonMistakes(l10n),
+                      icon: Icons.close_rounded,
+                      color: context.tokens.danger,
+                    ),
+                    SectionHeader(title: l10n.resultTipsTitle),
+                    _BulletCard(
+                      items: exercise.tips(l10n),
+                      icon: Icons.check_rounded,
+                      color: context.tokens.success,
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
-                GlassCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Egzersiz Açıklaması',
-                        style: TextStyle(
-                          fontSize: 19,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        detail.description,
-                        style: const TextStyle(
-                          color: AppColors.textSoft,
-                          height: 1.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                _DetailListCard(
-                  title: 'Hedef Kaslar',
-                  icon: Icons.fitness_center_rounded,
-                  items: detail.targetMuscles,
-                ),
-                const SizedBox(height: 16),
-                _DetailListCard(
-                  title: 'Yaygın Form Hataları',
-                  icon: Icons.warning_amber_rounded,
-                  items: detail.commonMistakes,
-                ),
-                const SizedBox(height: 16),
-                _DetailListCard(
-                  title: 'Uygulama İpuçları',
-                  icon: Icons.lightbulb_rounded,
-                  items: detail.tips,
-                ),
-                const SizedBox(height: 16),
-                GlassCard(
-                  child: Row(
-                    children: const [
-                      Icon(
-                        Icons.psychology_rounded,
-                        color: AppColors.purpleGlow,
-                        size: 30,
-                      ),
-                      SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'Bu bilgiler analiz sonucunu daha iyi yorumlaman için hazırlanmıştır.',
-                          style: TextStyle(
-                            color: AppColors.textSoft,
-                            height: 1.4,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _DetailListCard extends StatelessWidget {
-  final String title;
-  final IconData icon;
+class _BulletCard extends StatelessWidget {
   final List<String> items;
+  final IconData icon;
+  final Color color;
 
-  const _DetailListCard({
-    required this.title,
-    required this.icon,
+  const _BulletCard({
     required this.items,
+    required this.icon,
+    required this.color,
   });
 
   @override
   Widget build(BuildContext context) {
-    return GlassCard(
+    return AppCard(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(icon, color: AppColors.purpleGlow),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 19,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          ...items.map(
-            (item) => Padding(
-              padding: const EdgeInsets.only(bottom: 9),
+          for (final item in items)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: Gap.xs + 2),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(
-                    Icons.check_circle_rounded,
-                    color: AppColors.purpleGlow,
-                    size: 18,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(item, style: const TextStyle(height: 1.4)),
-                  ),
+                  Icon(icon, size: 18, color: color),
+                  const SizedBox(width: Gap.sm + 2),
+                  Expanded(child: Text(item, style: context.text.bodyMedium)),
                 ],
               ),
             ),
-          ),
         ],
       ),
     );

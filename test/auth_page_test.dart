@@ -9,6 +9,8 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'helpers.dart';
+
 Map<String, dynamic> _sessionJson(String fullName) => {
   'access_token': 'test-token',
   'token_type': 'bearer',
@@ -26,9 +28,9 @@ Future<void> _pumpAuthPage(
   addTearDown(tester.view.reset);
 
   await tester.pumpWidget(
-    MaterialApp(
-      theme: ThemeData(brightness: dark ? Brightness.dark : Brightness.light),
-      home: AuthPage(homeBuilder: homeBuilder),
+    wrapApp(
+      AuthPage(homeBuilder: homeBuilder),
+      themeMode: dark ? ThemeMode.dark : ThemeMode.light,
     ),
   );
   await tester.pumpAndSettle();
@@ -84,18 +86,18 @@ void main() {
   testWidgets('switches between login and register', (tester) async {
     await _pumpAuthPage(tester);
 
-    await _tapVisible(tester, find.text('Kayıt Ol'));
+    await _tapVisible(tester, find.text('Kayıt ol'));
     expect(find.text('Hesabını oluştur'), findsOneWidget);
     expect(find.text('Google ile kayıt ol'), findsOneWidget);
     expect(find.text('Apple ile kayıt ol'), findsOneWidget);
 
-    await _tapVisible(tester, find.text('Giriş Yap'));
+    await _tapVisible(tester, find.text('Giriş yap'));
     expect(find.text('Tekrar hoş geldin'), findsOneWidget);
   });
 
   testWidgets('register validates passwords, match and terms', (tester) async {
     await _pumpAuthPage(tester);
-    await _tapVisible(tester, find.text('Kayıt Ol'));
+    await _tapVisible(tester, find.text('Kayıt ol'));
 
     await tester.enterText(
       find.byKey(const Key('register_name')),
@@ -124,7 +126,7 @@ void main() {
     await _tapVisible(tester, find.text('Google ile devam et'));
 
     expect(
-      find.textContaining('Google ile giriş henüz yapılandırılmadı'),
+      find.textContaining('Google ile giriş bu cihazda henüz kullanılamıyor'),
       findsOneWidget,
     );
     expect(AuthStore.session.value, isNull);
@@ -169,7 +171,7 @@ void main() {
           tester,
           homeBuilder: (_) => const Scaffold(body: Text('home')),
         );
-        await _tapVisible(tester, find.text('Kayıt Ol'));
+        await _tapVisible(tester, find.text('Kayıt ol'));
 
         await tester.enterText(
           find.byKey(const Key('register_name')),
@@ -197,6 +199,9 @@ void main() {
         }
       },
       () => MockClient((request) async {
+        if (request.url.path == '/analyses') {
+          return http.Response('{"analyses": []}', 200);
+        }
         sentBody = jsonDecode(request.body) as Map<String, dynamic>;
         return http.Response(
           jsonEncode(_sessionJson('Ayşe Yılmaz')),
@@ -222,7 +227,7 @@ void main() {
       await _pumpAuthPage(tester, size: size, dark: dark);
       expect(tester.takeException(), isNull);
 
-      await _tapVisible(tester, find.text('Kayıt Ol'));
+      await _tapVisible(tester, find.text('Kayıt ol'));
       expect(tester.takeException(), isNull);
     });
   }

@@ -4,9 +4,10 @@ AIT Fitness uygulaması (Flutter) ve backend'i (FastAPI) için yapılan güvenli
 kontrolleri. Her madde için bulunan sorun, yapılan düzeltme ve bunu doğrulayan
 otomatik test listelenmiştir.
 
-**Durum (22.10.2026):** 12 kontrolün 12'si tamamlandı.
-Backend 63, AI modülü 540, Flutter 33 test geçiyor; ayrıca gerçek backend'e
-karşı uçtan uca API ve tarayıcı testleri çalıştırıldı.
+**Durum (26.10.2026):** 12 kontrolün 12'si tamamlandı.
+Backend 90, AI modülü 540, Flutter 59 test geçiyor; ayrıca gerçek backend'e
+karşı uçtan uca API ve tarayıcı testleri çalıştırıldı. Testler her push'ta
+GitHub Actions ile otomatik çalışır.
 
 | Öncelik | Alan | Kontrol | Durum |
 | --- | --- | --- | --- |
@@ -208,9 +209,28 @@ Testler: `backend/tests/test_auth.py`, `test_api_security.py`,
   Windows yollarındaki (`Masaüstü`) model dosyasını açamıyordu; model artık
   bellek üzerinden yükleniyor.
 
+## 26.10.2026'da eklenen güvenlik özellikleri
+
+- **Şifre sıfırlama ve e-posta doğrulama:** 6 haneli kodlar yalnızca HMAC
+  özeti olarak saklanır, 15 dakika geçerlidir, 5 hatalı denemeden sonra
+  geçersizleşir. Sıfırlama isteği hesabın var olup olmadığını belli etmez;
+  başarılı sıfırlama tüm oturumları kapatır. Kodlar loglara yazılmaz.
+- **Google/Apple girişi:** Kimlik token'ları sağlayıcının açık anahtarlarıyla
+  doğrulanır (imza, yayıncı, hedef kitle, süre); sahte, süresi dolmuş veya
+  başka uygulamaya ait token'lar reddedilir.
+- **Video saklama:** Videolar 30 gün sonra otomatik silinir (KVKK veri
+  minimizasyonu); analiz sonuçları kalır.
+- **Hesap silme:** Videolar, analizler, oturumlar, doğrulama kodları ve
+  sosyal hesap bağlantıları birlikte silinir; cihazdaki kullanıcı verisi de
+  temizlenir.
+- **Veritabanı değişiklikleri:** Alembic ile sürümlenir.
+
 ## Kalan riskler ve öneriler
 
 - Rate limit ve hatalı giriş sayaçları tek süreçlidir (çoklu sunucu için Redis).
-- Şifre sıfırlama ve Google/Apple girişi henüz yok (README → "Henüz eksik olanlar").
+- Eski veritabanlarında kullanılmayan `users.password` sütunu düz metin
+  şifreler içerebilir; silinmesi için ayrı bir migration gerekir.
+- Yasal metinlerdeki veri sorumlusu bilgileri doldurulmalı ve metinler hukuki
+  incelemeden geçmeli.
+- Dağıtım dosyaları (`deploy/`) henüz gerçek bir sunucuda denenmedi.
 - `fl_chart`, `file_picker`, `camera` büyük sürüm güncellemeleri ayrıca test edilmeli.
-- Bağımlılık taraması düzenli tekrarlanmalı (ör. her sürüm öncesi).

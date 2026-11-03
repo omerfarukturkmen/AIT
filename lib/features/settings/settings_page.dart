@@ -1,482 +1,292 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/app_colors.dart';
-import '../../../core/state/app_settings_store.dart';
-import '../../../widgets/glass_card.dart';
-import '../../../widgets/premium_background.dart';
+import '../../app.dart';
+import '../../core/app_exception.dart';
+import '../../core/services/auth_service.dart';
+import '../../core/state/app_settings_store.dart';
+import '../../core/state/auth_store.dart';
+import '../../core/state/navigation_store.dart';
+import '../../core/state/user_data.dart';
+import '../../core/theme/app_theme.dart';
+import '../../models/auth_session_model.dart';
+import '../../widgets/app_card.dart';
+import '../../widgets/page_scaffold.dart';
+import '../auth/auth_page.dart';
+import '../auth/password_reset_page.dart';
+import '../auth/verify_email_sheet.dart';
+import '../legal/legal_page.dart';
+
+const String appVersion = '1.0.0';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
 
-  Color _mainTextColor(AppSettings settings) {
-    return settings.isDarkMode ? AppColors.text : const Color(0xFF0F172A);
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return Scaffold(
+      appBar: AppBar(title: Text(l10n.settingsTitle)),
+      body: ValueListenableBuilder<AppSettings>(
+        valueListenable: AppSettingsStore.settings,
+        builder: (context, settings, _) {
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(Gap.page, 0, Gap.page, Gap.xxl),
+            children: [
+              Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    maxWidth: PageScaffold.maxContentWidth,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SectionHeader(title: l10n.settingsAppearance),
+                      SegmentedButton<ThemeMode>(
+                        showSelectedIcon: false,
+                        segments: [
+                          ButtonSegment(
+                            value: ThemeMode.system,
+                            label: Text(l10n.settingsThemeSystem),
+                            icon: const Icon(Icons.brightness_auto_outlined),
+                          ),
+                          ButtonSegment(
+                            value: ThemeMode.light,
+                            label: Text(l10n.settingsThemeLight),
+                            icon: const Icon(Icons.light_mode_outlined),
+                          ),
+                          ButtonSegment(
+                            value: ThemeMode.dark,
+                            label: Text(l10n.settingsThemeDark),
+                            icon: const Icon(Icons.dark_mode_outlined),
+                          ),
+                        ],
+                        selected: {settings.themeMode},
+                        onSelectionChanged: (value) =>
+                            AppSettingsStore.setThemeMode(value.first),
+                      ),
+                      SectionHeader(title: l10n.settingsLanguage),
+                      SegmentedButton<String>(
+                        showSelectedIcon: false,
+                        segments: const [
+                          ButtonSegment(value: 'tr', label: Text('Türkçe')),
+                          ButtonSegment(value: 'en', label: Text('English')),
+                        ],
+                        selected: {settings.languageCode},
+                        onSelectionChanged: (value) =>
+                            AppSettingsStore.setLanguage(value.first),
+                      ),
+                      SectionHeader(title: l10n.settingsVoice),
+                      AppCard(
+                        padding: EdgeInsets.zero,
+                        child: SwitchListTile(
+                          value: settings.voiceFeedbackEnabled,
+                          onChanged: AppSettingsStore.setVoiceFeedback,
+                          title: Text(l10n.settingsVoiceTitle),
+                          subtitle: Text(l10n.settingsVoiceBody),
+                        ),
+                      ),
+                      const _AccountSection(),
+                      SectionHeader(title: l10n.settingsLegal),
+                      AppCard(
+                        padding: EdgeInsets.zero,
+                        child: Column(
+                          children: [
+                            for (final document in LegalDocument.values)
+                              ListTile(
+                                leading: const Icon(Icons.description_outlined),
+                                title: Text(document.title(l10n)),
+                                trailing: const Icon(
+                                  Icons.chevron_right_rounded,
+                                ),
+                                onTap: () => LegalPage.open(context, document),
+                              ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: Gap.xl),
+                      Center(
+                        child: Text(
+                          l10n.settingsVersion(appVersion),
+                          style: context.text.bodySmall,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _AccountSection extends StatelessWidget {
+  const _AccountSection();
+
+  Future<bool> _confirm(
+    BuildContext context, {
+    required String title,
+    required String body,
+    required String action,
+    bool destructive = false,
+  }) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Text(body),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(context.l10n.commonCancel),
+          ),
+          FilledButton(
+            style: destructive
+                ? FilledButton.styleFrom(
+                    backgroundColor: context.colors.error,
+                    foregroundColor: context.colors.onError,
+                  )
+                : null,
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(action),
+          ),
+        ],
+      ),
+    );
+    return result == true;
+  }
+
+  void _toSignIn(BuildContext context, [String? message]) {
+    final messenger = ScaffoldMessenger.of(context);
+    NavigationStore.go(AppTab.home);
+    Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const AuthPage()),
+      (_) => false,
+    );
+    if (message != null) {
+      messenger.showSnackBar(SnackBar(content: Text(message)));
+    }
+  }
+
+  Future<void> _signOut(BuildContext context, {bool allDevices = false}) async {
+    final l10n = context.l10n;
+    final ok = await _confirm(
+      context,
+      title: allDevices ? l10n.settingsSignOutAll : l10n.settingsSignOut,
+      body: allDevices ? l10n.settingsSignOutAllBody : l10n.settingsSignOutBody,
+      action: l10n.settingsSignOut,
+    );
+    if (!ok || !context.mounted) return;
+    await AuthStore.signOut(allDevices: allDevices);
+    if (context.mounted) _toSignIn(context);
+  }
+
+  Future<void> _deleteAccount(BuildContext context) async {
+    final l10n = context.l10n;
+    final session = AuthStore.session.value;
+    if (session == null) return;
+    final ok = await _confirm(
+      context,
+      title: l10n.settingsDeleteTitle,
+      body: l10n.settingsDeleteBody,
+      action: l10n.settingsDeleteAction,
+      destructive: true,
+    );
+    if (!ok || !context.mounted) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await AuthService.deleteAccount(session.accessToken);
+      await UserData.deleteForCurrentUser();
+      await AuthStore.signOut();
+      if (context.mounted) _toSignIn(context, l10n.settingsDeleted);
+    } on AppException catch (error) {
+      messenger.showSnackBar(SnackBar(content: Text(error.message(l10n))));
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: PremiumBackground(
-        child: SafeArea(
-          child: ValueListenableBuilder<AppSettings>(
-            valueListenable: AppSettingsStore.settings,
-            builder: (context, settings, child) {
-              return SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      'Ayarlar',
-                      style: TextStyle(
-                        fontSize: 30,
-                        fontWeight: FontWeight.w900,
-                        color: _mainTextColor(settings),
+    final l10n = context.l10n;
+    return ValueListenableBuilder<AuthSession?>(
+      valueListenable: AuthStore.session,
+      builder: (context, session, _) {
+        final user = session?.user;
+        if (user == null) return const SizedBox.shrink();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SectionHeader(title: l10n.settingsAccount),
+            AppCard(
+              padding: EdgeInsets.zero,
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.mail_outline_rounded),
+                    title: Text(
+                      user.email,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: Text(
+                      user.emailVerified
+                          ? l10n.profileVerified
+                          : l10n.profileNotVerified,
+                    ),
+                    trailing: user.emailVerified
+                        ? Icon(
+                            Icons.verified_rounded,
+                            color: context.tokens.success,
+                          )
+                        : TextButton(
+                            onPressed: () => VerifyEmailSheet.show(context),
+                            child: Text(l10n.verifyAction),
+                          ),
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.password_rounded),
+                    title: Text(l10n.resetSetPassword),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => PasswordResetPage(
+                          initialEmail: user.email,
+                          lockEmail: true,
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Uygulama deneyimini, sesli geri bildirimleri, tema görünümünü ve demo modunu buradan yönetebilirsin.',
-                      style: TextStyle(color: AppColors.textSoft, height: 1.4),
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.devices_rounded),
+                    title: Text(l10n.settingsSignOutAll),
+                    onTap: () => _signOut(context, allDevices: true),
+                  ),
+                  ListTile(
+                    key: const Key('settings_sign_out'),
+                    leading: const Icon(Icons.logout_rounded),
+                    title: Text(l10n.settingsSignOut),
+                    onTap: () => _signOut(context),
+                  ),
+                  ListTile(
+                    key: const Key('settings_delete_account'),
+                    leading: Icon(
+                      Icons.delete_forever_outlined,
+                      color: context.colors.error,
                     ),
-                    const SizedBox(height: 22),
-                    _AppearanceSettingsCard(settings: settings),
-                    const SizedBox(height: 16),
-                    _VoiceSettingsCard(settings: settings),
-                    const SizedBox(height: 16),
-                    _SystemStatusCard(settings: settings),
-                    const SizedBox(height: 16),
-                    const _AppInfoCard(),
-                  ],
-                ),
-              );
-            },
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _AppearanceSettingsCard extends StatelessWidget {
-  final AppSettings settings;
-
-  const _AppearanceSettingsCard({required this.settings});
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const _CardTitle(icon: Icons.palette_rounded, title: 'Görünüm'),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: _ThemeOptionCard(
-                  title: 'Dark Mode',
-                  subtitle: 'Neon fitness dashboard',
-                  icon: Icons.dark_mode_rounded,
-                  isSelected: settings.isDarkMode,
-                  onTap: () {
-                    AppSettingsStore.updateThemeMode(true);
-                  },
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _ThemeOptionCard(
-                  title: 'Light Mode',
-                  subtitle: 'Temiz beyaz görünüm',
-                  icon: Icons.light_mode_rounded,
-                  isSelected: !settings.isDarkMode,
-                  onTap: () {
-                    AppSettingsStore.updateThemeMode(false);
-                  },
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ThemeOptionCard extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const _ThemeOptionCard({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final color = isSelected ? AppColors.primary : AppColors.textSoft;
-
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: isSelected ? 0.16 : 0.06),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: color.withValues(alpha: isSelected ? 0.42 : 0.14),
-          ),
-          boxShadow: [
-            if (isSelected)
-              BoxShadow(
-                color: color.withValues(alpha: 0.18),
-                blurRadius: 24,
-                offset: const Offset(0, 10),
-              ),
-          ],
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: color, size: 30),
-            const SizedBox(height: 10),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: color,
-                fontWeight: FontWeight.w900,
-                fontSize: 14,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              subtitle,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: AppColors.textSoft,
-                fontSize: 11,
-                height: 1.3,
+                    title: Text(
+                      l10n.settingsDeleteTitle,
+                      style: TextStyle(color: context.colors.error),
+                    ),
+                    onTap: () => _deleteAccount(context),
+                  ),
+                ],
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _VoiceSettingsCard extends StatelessWidget {
-  final AppSettings settings;
-
-  const _VoiceSettingsCard({required this.settings});
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const _CardTitle(
-            icon: Icons.volume_up_rounded,
-            title: 'Sesli Geri Bildirim',
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'Egzersiz sırasında sesli uyarı al',
-                  style: TextStyle(fontWeight: FontWeight.w800),
-                ),
-              ),
-              Switch(
-                value: settings.voiceFeedbackEnabled,
-                activeThumbColor: AppColors.purpleGlow,
-                activeTrackColor: AppColors.purpleGlow.withValues(alpha: 0.35),
-                onChanged: AppSettingsStore.updateVoiceFeedback,
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          _SettingsDropdown<String>(
-            icon: Icons.language_rounded,
-            title: 'Dil',
-            value: settings.languageCode,
-            items: const [
-              DropdownMenuItem(value: 'tr-TR', child: Text('Türkçe')),
-              DropdownMenuItem(value: 'en-US', child: Text('English')),
-            ],
-            onChanged: (value) {
-              if (value != null) {
-                AppSettingsStore.updateLanguage(value);
-              }
-            },
-          ),
-          const SizedBox(height: 12),
-          _SettingsDropdown<int>(
-            icon: Icons.timer_rounded,
-            title: 'Uyarı Sıklığı',
-            value: settings.feedbackIntervalSeconds,
-            items: const [
-              DropdownMenuItem(value: 2, child: Text('2 saniye')),
-              DropdownMenuItem(value: 5, child: Text('5 saniye')),
-              DropdownMenuItem(value: 10, child: Text('10 saniye')),
-            ],
-            onChanged: (value) {
-              if (value != null) {
-                AppSettingsStore.updateFeedbackInterval(value);
-              }
-            },
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SystemStatusCard extends StatelessWidget {
-  final AppSettings settings;
-
-  const _SystemStatusCard({required this.settings});
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const _CardTitle(
-            icon: Icons.cloud_sync_rounded,
-            title: 'Sistem Durumu',
-          ),
-          const SizedBox(height: 14),
-          _StatusRow(
-            title: 'Demo Mode',
-            subtitle: settings.demoModeEnabled
-                ? 'Fake AI service aktif'
-                : 'Demo mode kapalı',
-            value: settings.demoModeEnabled,
-            activeColor: Colors.greenAccent,
-          ),
-          const SizedBox(height: 12),
-          _StatusRow(
-            title: 'Backend API',
-            subtitle: settings.backendReady
-                ? 'Backend bağlantısı hazır'
-                : 'Backend API bekleniyor',
-            value: settings.backendReady,
-            activeColor: AppColors.purpleGlow,
-          ),
-          const SizedBox(height: 14),
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: AppColors.purpleGlow.withValues(alpha: 0.10),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(
-                color: AppColors.purpleGlow.withValues(alpha: 0.22),
-              ),
-            ),
-            child: const Text(
-              'Backend endpoint geldiğinde sadece service katmanı güncellenecek. UI, model ve sonuç ekranı aynı yapıyla çalışmaya devam edecek.',
-              style: TextStyle(
-                color: AppColors.textSoft,
-                height: 1.45,
-                fontSize: 13,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatusRow extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final bool value;
-  final Color activeColor;
-
-  const _StatusRow({
-    required this.title,
-    required this.subtitle,
-    required this.value,
-    required this.activeColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final statusColor = value ? activeColor : Colors.orangeAccent;
-
-    return Row(
-      children: [
-        Container(
-          height: 42,
-          width: 42,
-          decoration: BoxDecoration(
-            color: statusColor.withValues(alpha: 0.13),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: statusColor.withValues(alpha: 0.25)),
-          ),
-          child: Icon(
-            value ? Icons.check_circle_rounded : Icons.pending_rounded,
-            color: statusColor,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w900,
-                  fontSize: 15,
-                ),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                subtitle,
-                style: const TextStyle(color: AppColors.textSoft, fontSize: 12),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _AppInfoCard extends StatelessWidget {
-  const _AppInfoCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return const GlassCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _CardTitle(
-            icon: Icons.info_outline_rounded,
-            title: 'Uygulama Bilgisi',
-          ),
-          SizedBox(height: 14),
-          _InfoLine(title: 'Uygulama', value: 'AIT Fitness Trainer'),
-          _InfoLine(title: 'Frontend', value: 'Flutter'),
-          _InfoLine(title: 'Analiz Modu', value: 'Live Camera + Upload Video'),
-          _InfoLine(title: 'AI Durumu', value: 'Demo Service / API Ready'),
-          _InfoLine(title: 'Versiyon', value: '1.0.0'),
-        ],
-      ),
-    );
-  }
-}
-
-class _InfoLine extends StatelessWidget {
-  final String title;
-  final String value;
-
-  const _InfoLine({required this.title, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 11),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              title,
-              style: const TextStyle(color: AppColors.textSoft),
-            ),
-          ),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.w800)),
-        ],
-      ),
-    );
-  }
-}
-
-class _SettingsDropdown<T> extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final T value;
-  final List<DropdownMenuItem<T>> items;
-  final ValueChanged<T?> onChanged;
-
-  const _SettingsDropdown({
-    required this.icon,
-    required this.title,
-    required this.value,
-    required this.items,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: AppColors.purpleGlow, size: 22),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              title,
-              style: const TextStyle(fontWeight: FontWeight.w800),
-            ),
-          ),
-          DropdownButton<T>(
-            value: value,
-            items: items,
-            onChanged: onChanged,
-            underline: const SizedBox(),
-            dropdownColor: AppColors.bg2,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
-            ),
-            iconEnabledColor: AppColors.purpleGlow,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CardTitle extends StatelessWidget {
-  final IconData icon;
-  final String title;
-
-  const _CardTitle({required this.icon, required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, color: AppColors.purpleGlow),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(
-            title,
-            style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900),
-          ),
-        ),
-      ],
+        );
+      },
     );
   }
 }

@@ -1,18 +1,21 @@
 import 'package:flutter/material.dart';
 
+import '../../app.dart';
+import '../../core/app_exception.dart';
 import '../../core/services/auth_service.dart';
+import '../../core/services/social_sign_in.dart';
 import '../../core/state/auth_store.dart';
+import '../../core/theme/app_theme.dart';
 import '../../models/auth_session_model.dart';
 import 'auth_validators.dart';
+import 'password_reset_page.dart';
 import 'widgets/auth_feedback.dart';
-import 'widgets/auth_palette.dart';
-import 'widgets/auth_submit_button.dart';
 import 'widgets/auth_text_field.dart';
 import 'widgets/social_auth_buttons.dart';
 
 class LoginForm extends StatefulWidget {
   final void Function(AuthSession session, String message) onAuthenticated;
-  final ValueChanged<SocialAuthProvider> onSocialPressed;
+  final ValueChanged<SocialProvider> onSocialPressed;
   final VoidCallback onSwitchToRegister;
 
   const LoginForm({
@@ -54,6 +57,7 @@ class _LoginFormState extends State<LoginForm> {
     });
     if (!_formKey.currentState!.validate()) return;
 
+    final l10n = context.l10n;
     setState(() => _isLoading = true);
     try {
       final session = await AuthService.login(
@@ -65,42 +69,27 @@ class _LoginFormState extends State<LoginForm> {
       if (!mounted) return;
       widget.onAuthenticated(
         session,
-        'Tekrar hoş geldin, ${session.user.firstName}!',
+        l10n.authWelcomeBack(session.user.firstName),
       );
-    } on AuthException catch (error) {
-      if (mounted) setState(() => _serverError = error.message);
+    } on AppException catch (error) {
+      if (mounted) setState(() => _serverError = error.message(l10n));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  void _showForgotPassword() {
-    // GEÇİCİ: Backend'de şifre sıfırlama uç noktası (ör. POST
-    // /auth/password-reset) ve e-posta gönderimi yok. Eklendiğinde bu
-    // diyalog e-posta alıp isteği gönderecek şekilde değiştirilmeli.
-    showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        icon: const Icon(Icons.lock_reset_rounded),
-        title: const Text('Şifre sıfırlama'),
-        content: const Text(
-          'Şifre sıfırlama bağlantısı gönderme özelliği henüz '
-          'kullanılamıyor. Hesabına erişemiyorsan lütfen destek ekibiyle '
-          'iletişime geç.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Tamam'),
-          ),
-        ],
+  void _openPasswordReset() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => PasswordResetPage(initialEmail: _emailController.text),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final palette = AuthPalette.of(context);
+    final l10n = context.l10n;
+    final validators = AuthValidators(l10n);
 
     return Form(
       key: _formKey,
@@ -111,39 +100,39 @@ class _LoginFormState extends State<LoginForm> {
           children: [
             AuthTextField(
               key: const Key('login_email'),
-              maxLength: AuthValidators.maxEmailLength,
               controller: _emailController,
-              label: 'E-posta adresi',
-              hint: 'ad@ornek.com',
+              label: l10n.authEmail,
+              hint: l10n.authEmailHint,
               icon: Icons.mail_outline_rounded,
               keyboardType: TextInputType.emailAddress,
               autofillHints: const [AutofillHints.email],
-              validator: AuthValidators.email,
+              maxLength: AuthValidators.maxEmailLength,
+              validator: validators.email,
               enabled: !_isLoading,
               onFieldSubmitted: (_) => _passwordFocus.requestFocus(),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: Gap.lg),
             AuthTextField(
               key: const Key('login_password'),
-              maxLength: AuthValidators.maxPasswordLength,
               controller: _passwordController,
               focusNode: _passwordFocus,
-              label: 'Şifre',
+              label: l10n.authPassword,
               icon: Icons.lock_outline_rounded,
               isPassword: true,
               textInputAction: TextInputAction.done,
               autofillHints: const [AutofillHints.password],
-              validator: AuthValidators.loginPassword,
+              maxLength: AuthValidators.maxPasswordLength,
+              validator: validators.loginPassword,
               enabled: !_isLoading,
               onFieldSubmitted: (_) => _submit(),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: Gap.xs),
             Row(
               children: [
                 Expanded(
                   child: MergeSemantics(
                     child: InkWell(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(Radii.sm),
                       onTap: _isLoading
                           ? null
                           : () => setState(() => _rememberMe = !_rememberMe),
@@ -156,56 +145,43 @@ class _LoginFormState extends State<LoginForm> {
                                 : (value) => setState(
                                     () => _rememberMe = value ?? false,
                                   ),
-                            activeColor: palette.focus,
-                            side: BorderSide(color: palette.textMuted),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(5),
-                            ),
                           ),
-                          Flexible(
-                            child: Text(
-                              'Beni hatırla',
-                              style: TextStyle(
-                                color: palette.text,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ),
+                          Flexible(child: Text(l10n.authRememberMe)),
                         ],
                       ),
                     ),
                   ),
                 ),
-                AuthLinkButton(
-                  label: 'Şifremi unuttum',
-                  onPressed: _isLoading ? null : _showForgotPassword,
+                TextButton(
+                  onPressed: _isLoading ? null : _openPasswordReset,
+                  child: Text(l10n.authForgotPassword),
                 ),
               ],
             ),
             if (_serverError != null) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: Gap.md),
               AuthMessageBanner(message: _serverError!),
             ],
-            const SizedBox(height: 20),
+            const SizedBox(height: Gap.lg),
             AuthSubmitButton(
               key: const Key('login_submit'),
-              label: 'Giriş Yap',
-              loadingLabel: 'Giriş yapılıyor…',
+              label: l10n.authSignIn,
+              loadingLabel: l10n.authSigningIn,
               isLoading: _isLoading,
               onPressed: _submit,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: Gap.xl),
             const AuthOrDivider(),
-            const SizedBox(height: 24),
+            const SizedBox(height: Gap.xl),
             SocialAuthButtons(
               isSignUp: false,
               enabled: !_isLoading,
               onPressed: widget.onSocialPressed,
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: Gap.lg),
             AuthSwitchPrompt(
-              question: 'Hesabın yok mu?',
-              action: 'Kayıt Ol',
+              question: l10n.authNoAccount,
+              action: l10n.authSignUp,
               onPressed: _isLoading ? null : widget.onSwitchToRegister,
             ),
           ],

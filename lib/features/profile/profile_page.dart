@@ -1,581 +1,134 @@
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/app_colors.dart';
-import '../../../core/state/analysis_history_store.dart';
-import '../../../core/services/auth_service.dart';
-import '../../../core/state/auth_store.dart';
-import '../../../data/fake_data.dart';
-import '../../../models/analysis_result_model.dart';
-import '../../../models/auth_session_model.dart';
-import '../../../widgets/glass_card.dart';
-import '../../../widgets/premium_background.dart';
-import '../auth/auth_page.dart';
+import '../../app.dart';
+import '../../core/state/analysis_history_store.dart';
+import '../../core/state/auth_store.dart';
+import '../../core/state/favorite_exercises_store.dart';
+import '../../core/theme/app_theme.dart';
+import '../../data/exercise_catalog.dart';
+import '../../models/analysis_result_model.dart';
+import '../../models/auth_session_model.dart';
+import '../../widgets/app_card.dart';
+import '../../widgets/common.dart';
+import '../../widgets/page_scaffold.dart';
+import '../auth/verify_email_sheet.dart';
+import '../exercise_detail/exercise_detail_page.dart';
+import '../settings/settings_page.dart';
+import 'achievements.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: PremiumBackground(
-        child: SafeArea(
-          child: ValueListenableBuilder<List<AnalysisResult>>(
-            valueListenable: AnalysisHistoryStore.results,
-            builder: (context, results, child) {
-              final totalAnalyses = results.length;
-              final averageScore = _calculateAverageScore(results);
-              final bestScore = _calculateBestScore(results);
-
-              return SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const _ProfileHeaderCard(),
-                    const SizedBox(height: 18),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _ProfileStatCard(
-                            title: 'Analiz',
-                            value: '$totalAnalyses',
-                            icon: Icons.analytics_rounded,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _ProfileStatCard(
-                            title: 'Ortalama',
-                            value: '$averageScore',
-                            icon: Icons.speed_rounded,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _ProfileStatCard(
-                            title: 'En İyi',
-                            value: '$bestScore',
-                            icon: Icons.emoji_events_rounded,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 18),
-                    _WeeklyProgressChartCard(results: results),
-                    const SizedBox(height: 18),
-                    const _AchievementsCard(),
-                    const SizedBox(height: 18),
-                    const _GoalCard(),
-                    const SizedBox(height: 18),
-                    const _SignOutButton(),
-                    const SizedBox(height: 10),
-                    const _DeleteAccountButton(),
-                  ],
-                ),
-              );
-            },
-          ),
-        ),
-      ),
-    );
-  }
-
-  int _calculateAverageScore(List<AnalysisResult> results) {
-    if (results.isEmpty) return 0;
-
-    final total = results.fold<int>(0, (sum, result) => sum + result.score);
-
-    return (total / results.length).round();
-  }
-
-  int _calculateBestScore(List<AnalysisResult> results) {
-    if (results.isEmpty) return 0;
-
-    return results
-        .map((result) => result.score)
-        .reduce((current, next) => current > next ? current : next);
-  }
-}
-
-class _DeleteAccountButton extends StatefulWidget {
-  const _DeleteAccountButton();
-
-  @override
-  State<_DeleteAccountButton> createState() => _DeleteAccountButtonState();
-}
-
-class _DeleteAccountButtonState extends State<_DeleteAccountButton> {
-  bool _isDeleting = false;
-
-  Future<void> _confirmAndDelete() async {
-    final session = AuthStore.session.value;
-    if (session == null) return;
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        icon: const Icon(Icons.warning_amber_rounded, color: AppColors.red),
-        title: const Text('Hesabını kalıcı olarak sil'),
-        content: const Text(
-          'Hesabın, yüklediğin tüm videolar ve analiz sonuçların sunucudan '
-          'kalıcı olarak silinecek. Bu işlem geri alınamaz.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Vazgeç'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(backgroundColor: AppColors.red),
-            child: const Text('Kalıcı Olarak Sil'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
-
-    final messenger = ScaffoldMessenger.of(context);
-    final navigator = Navigator.of(context, rootNavigator: true);
-    setState(() => _isDeleting = true);
-    try {
-      await AuthService.deleteAccount(session.accessToken);
-      await AuthStore.signOut();
-      navigator.pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const AuthPage()),
-        (_) => false,
-      );
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Hesabın ve tüm verilerin silindi.')),
-      );
-    } on AuthException catch (error) {
-      if (!mounted) return;
-      setState(() => _isDeleting = false);
-      messenger.showSnackBar(SnackBar(content: Text(error.message)));
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return TextButton.icon(
-      onPressed: _isDeleting ? null : _confirmAndDelete,
-      icon: _isDeleting
-          ? const SizedBox(
-              height: 18,
-              width: 18,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : const Icon(Icons.delete_forever_rounded),
-      label: Text(_isDeleting ? 'Hesap siliniyor…' : 'Hesabımı Sil'),
-      style: TextButton.styleFrom(
-        foregroundColor: AppColors.red,
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
-      ),
-    );
-  }
-}
-
-class _SignOutButton extends StatelessWidget {
-  const _SignOutButton();
-
-  Future<void> _confirmSignOut(BuildContext context) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Çıkış yap'),
-        content: const Text('Hesabından çıkış yapmak istediğine emin misin?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Vazgeç'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(backgroundColor: AppColors.red),
-            child: const Text('Çıkış Yap'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !context.mounted) return;
-
-    await AuthStore.signOut();
-    if (!context.mounted) return;
-    Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const AuthPage()),
-      (_) => false,
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return OutlinedButton.icon(
-      onPressed: () => _confirmSignOut(context),
-      icon: const Icon(Icons.logout_rounded),
-      label: const Text('Çıkış Yap'),
-      style: OutlinedButton.styleFrom(
-        foregroundColor: AppColors.red,
-        side: BorderSide(color: AppColors.red.withValues(alpha: 0.5)),
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        textStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
-      ),
-    );
-  }
-}
-
-class _ProfileHeaderCard extends StatelessWidget {
-  const _ProfileHeaderCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassCard(
-      child: Column(
-        children: [
-          Container(
-            height: 86,
-            width: 86,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: const LinearGradient(
-                colors: [
-                  Color(0xFF5B4B8A),
-                  Color(0xFF3B2A6D),
-                  Color(0xFF1F1A3D),
-                ],
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.purpleGlow.withValues(alpha: 0.32),
-                  blurRadius: 32,
-                  offset: const Offset(0, 12),
+    final l10n = context.l10n;
+    return ValueListenableBuilder<AuthSession?>(
+      valueListenable: AuthStore.session,
+      builder: (context, session, _) {
+        return ValueListenableBuilder<List<AnalysisResult>>(
+          valueListenable: AnalysisHistoryStore.results,
+          builder: (context, results, _) {
+            final user = session?.user;
+            return PageScaffold(
+              title: l10n.profileTitle,
+              actions: [
+                IconButton(
+                  key: const Key('open_settings'),
+                  tooltip: l10n.settingsTitle,
+                  icon: const Icon(Icons.settings_outlined),
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const SettingsPage()),
+                  ),
                 ),
               ],
-            ),
-            child: const Icon(
-              Icons.person_rounded,
-              color: Colors.white,
-              size: 48,
-            ),
-          ),
-          const SizedBox(height: 16),
-          ValueListenableBuilder<AuthSession?>(
-            valueListenable: AuthStore.session,
-            builder: (context, session, _) {
-              final user = session?.user;
-              return Column(
-                children: [
-                  Text(
-                    user?.fullName ?? 'AIT Kullanıcısı',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w900,
+              children: [
+                if (user != null) _ProfileHeader(user: user),
+                const SizedBox(height: Gap.md),
+                Row(
+                  children: [
+                    Expanded(
+                      child: StatTile(
+                        label: l10n.profileAnalyses,
+                        value: '${results.length}',
+                        icon: Icons.insights_rounded,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    user?.email ?? 'AI destekli fitness form takibi',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: AppColors.textSoft),
-                  ),
-                ],
-              );
-            },
-          ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            decoration: BoxDecoration(
-              color: AppColors.purpleGlow.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(99),
-              border: Border.all(
-                color: AppColors.purpleGlow.withValues(alpha: 0.28),
-              ),
-            ),
-            child: const Text(
-              'Active Training Mode',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w800,
-                fontSize: 13,
-              ),
-            ),
-          ),
-        ],
-      ),
+                    const SizedBox(width: Gap.md),
+                    Expanded(
+                      child: StatTile(
+                        label: l10n.homeAverageScore,
+                        value: '${AnalysisHistoryStore.averageScore}',
+                        icon: Icons.speed_rounded,
+                      ),
+                    ),
+                    const SizedBox(width: Gap.md),
+                    Expanded(
+                      child: StatTile(
+                        label: l10n.homeBestScore,
+                        value: '${AnalysisHistoryStore.bestScore}',
+                        icon: Icons.emoji_events_outlined,
+                      ),
+                    ),
+                  ],
+                ),
+                SectionHeader(title: l10n.profileAchievements),
+                _AchievementGrid(results: results),
+                const _Favorites(),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 }
 
-class _ProfileStatCard extends StatelessWidget {
-  final String title;
-  final String value;
-  final IconData icon;
+class _ProfileHeader extends StatelessWidget {
+  final AuthUser user;
 
-  const _ProfileStatCard({
-    required this.title,
-    required this.value,
-    required this.icon,
-  });
+  const _ProfileHeader({required this.user});
 
   @override
   Widget build(BuildContext context) {
-    final parsedValue = int.tryParse(value) ?? 0;
-
-    return GlassCard(
-      child: Column(
-        children: [
-          Icon(icon, color: AppColors.purpleGlow, size: 25),
-          const SizedBox(height: 10),
-          TweenAnimationBuilder<int>(
-            tween: IntTween(begin: 0, end: parsedValue),
-            duration: const Duration(milliseconds: 900),
-            curve: Curves.easeOutCubic,
-            builder: (context, animatedValue, child) {
-              return Text(
-                '$animatedValue',
-                style: const TextStyle(
-                  fontSize: 26,
-                  fontWeight: FontWeight.w900,
-                  color: AppColors.purpleGlow,
-                ),
-              );
-            },
-          ),
-          const SizedBox(height: 4),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: AppColors.textSoft, fontSize: 12),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _WeeklyProgressChartCard extends StatelessWidget {
-  final List<AnalysisResult> results;
-
-  const _WeeklyProgressChartCard({required this.results});
-
-  List<FlSpot> get spots {
-    final latest = results.take(5).toList().reversed.toList();
-
-    if (latest.isEmpty) {
-      return const [
-        FlSpot(0, 0),
-        FlSpot(1, 0),
-        FlSpot(2, 0),
-        FlSpot(3, 0),
-        FlSpot(4, 0),
-      ];
-    }
-
-    return List.generate(
-      latest.length,
-      (index) => FlSpot(index.toDouble(), latest[index].score.toDouble()),
-    );
-  }
-
-  int get bestScore {
-    if (results.isEmpty) return 0;
-
-    return results
-        .map((result) => result.score)
-        .reduce((current, next) => current > next ? current : next);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Haftalık Gelişim',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            'Son analiz skorlarına göre form gelişimin',
-            style: TextStyle(color: AppColors.textSoft, fontSize: 13),
-          ),
-          const SizedBox(height: 18),
-          Row(
-            children: [
-              Expanded(
-                child: _MiniMetricCard(
-                  title: 'Analiz',
-                  value: '${results.length}',
-                  icon: Icons.analytics_rounded,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _MiniMetricCard(
-                  title: 'En İyi Skor',
-                  value: '$bestScore',
-                  icon: Icons.emoji_events_rounded,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 22),
-          SizedBox(
-            height: 190,
-            child: TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0, end: 1),
-              duration: const Duration(milliseconds: 1200),
-              curve: Curves.easeOutCubic,
-              builder: (context, value, child) {
-                return LineChart(
-                  LineChartData(
-                    minY: 0,
-                    maxY: 100,
-                    gridData: FlGridData(
-                      show: true,
-                      drawVerticalLine: false,
-                      horizontalInterval: 25,
-                      getDrawingHorizontalLine: (gridValue) {
-                        return FlLine(
-                          color: Colors.white.withValues(alpha: 0.07),
-                          strokeWidth: 1,
-                        );
-                      },
-                    ),
-                    titlesData: FlTitlesData(
-                      leftTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false),
-                      ),
-                      topTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false),
-                      ),
-                      rightTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false),
-                      ),
-                      bottomTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          reservedSize: 28,
-                          getTitlesWidget: (dayValue, meta) {
-                            const labels = ['1', '2', '3', '4', '5'];
-
-                            if (dayValue.toInt() < 0 ||
-                                dayValue.toInt() >= labels.length) {
-                              return const SizedBox();
-                            }
-
-                            return Text(
-                              labels[dayValue.toInt()],
-                              style: const TextStyle(
-                                color: AppColors.textSoft,
-                                fontSize: 12,
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-                    borderData: FlBorderData(show: false),
-                    lineBarsData: [
-                      LineChartBarData(
-                        spots: spots
-                            .map((spot) => FlSpot(spot.x, spot.y * value))
-                            .toList(),
-                        isCurved: true,
-                        barWidth: 5,
-                        color: AppColors.purpleGlow,
-                        shadow: Shadow(
-                          color: AppColors.purpleGlow.withValues(alpha: 0.6),
-                          blurRadius: 18,
-                        ),
-                        belowBarData: BarAreaData(
-                          show: true,
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              AppColors.purpleGlow.withValues(alpha: 0.35),
-                              AppColors.purple.withValues(alpha: 0.03),
-                            ],
-                          ),
-                        ),
-                        dotData: FlDotData(
-                          show: true,
-                          getDotPainter: (spot, percent, barData, index) {
-                            return FlDotCirclePainter(
-                              radius: 5,
-                              color: AppColors.purpleGlow,
-                              strokeWidth: 3,
-                              strokeColor: Colors.white.withValues(alpha: 0.75),
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MiniMetricCard extends StatelessWidget {
-  final String title;
-  final String value;
-  final IconData icon;
-
-  const _MiniMetricCard({
-    required this.title,
-    required this.value,
-    required this.icon,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppColors.purpleGlow.withValues(alpha: 0.18),
-            Colors.white.withValues(alpha: 0.04),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.purpleGlow.withValues(alpha: 0.2)),
-      ),
+    final l10n = context.l10n;
+    return AppCard(
       child: Row(
         children: [
-          Icon(icon, color: AppColors.purpleGlow, size: 22),
-          const SizedBox(width: 10),
+          CircleAvatar(
+            radius: 30,
+            backgroundColor: context.colors.primaryContainer,
+            child: Text(
+              user.initials,
+              style: context.text.titleLarge?.copyWith(
+                color: context.colors.onPrimaryContainer,
+              ),
+            ),
+          ),
+          const SizedBox(width: Gap.lg),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  value,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
+                Text(user.fullName, style: context.text.titleLarge),
                 const SizedBox(height: 2),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: AppColors.textSoft,
+                Text(user.email, style: context.text.bodySmall),
+                const SizedBox(height: Gap.sm),
+                if (user.emailVerified)
+                  Pill(
+                    label: l10n.profileVerified,
+                    icon: Icons.verified_rounded,
+                    color: context.tokens.success,
+                  )
+                else
+                  InkWell(
+                    onTap: () => VerifyEmailSheet.show(context),
+                    borderRadius: BorderRadius.circular(999),
+                    child: Pill(
+                      label: l10n.profileNotVerified,
+                      icon: Icons.error_outline_rounded,
+                      color: context.tokens.warning,
+                    ),
                   ),
-                ),
               ],
             ),
           ),
@@ -585,97 +138,114 @@ class _MiniMetricCard extends StatelessWidget {
   }
 }
 
-class _AchievementsCard extends StatelessWidget {
-  const _AchievementsCard();
+class _AchievementGrid extends StatelessWidget {
+  final List<AnalysisResult> results;
+
+  const _AchievementGrid({required this.results});
 
   @override
   Widget build(BuildContext context) {
-    return GlassCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Rozetler',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+    final items = achievementsFor(context.l10n, results);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = constraints.maxWidth >= 560 ? 3 : 2;
+        final width = (constraints.maxWidth - Gap.md * (columns - 1)) / columns;
+        return Wrap(
+          spacing: Gap.md,
+          runSpacing: Gap.md,
+          children: [
+            for (final item in items)
+              SizedBox(
+                width: width,
+                child: _AchievementTile(item: item),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _AchievementTile extends StatelessWidget {
+  final Achievement item;
+
+  const _AchievementTile({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final muted = !item.unlocked;
+    return Semantics(
+      label:
+          '${item.title}, ${item.unlocked ? l10n.achievementUnlocked : l10n.achievementLocked}. ${item.description}',
+      excludeSemantics: true,
+      child: AppCard(
+        padding: const EdgeInsets.all(Gap.md + 2),
+        child: Opacity(
+          opacity: muted ? 0.55 : 1,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              IconBadge(
+                icon: muted ? Icons.lock_outline_rounded : item.icon,
+                color: muted
+                    ? context.tokens.textTertiary
+                    : context.tokens.warning,
+                size: 36,
+              ),
+              const SizedBox(height: Gap.sm),
+              Text(item.title, style: context.text.titleSmall),
+              const SizedBox(height: 2),
+              Text(
+                item.description,
+                style: context.text.bodySmall,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
           ),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: achievements.map((achievement) {
-              return Container(
-                width: 135,
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: achievement.isUnlocked
-                      ? AppColors.purpleGlow.withValues(alpha: 0.16)
-                      : Colors.white.withValues(alpha: 0.04),
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: achievement.isUnlocked
-                        ? AppColors.purpleGlow.withValues(alpha: 0.35)
-                        : Colors.white.withValues(alpha: 0.10),
-                  ),
-                ),
-                child: Column(
-                  children: [
-                    Icon(
-                      achievement.icon,
-                      color: achievement.isUnlocked
-                          ? AppColors.purpleGlow
-                          : AppColors.textSoft,
-                      size: 28,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      achievement.title,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        color: achievement.isUnlocked
-                            ? Colors.white
-                            : AppColors.textSoft,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      achievement.isUnlocked ? 'Açıldı' : 'Kilitli',
-                      style: const TextStyle(
-                        color: AppColors.textSoft,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }).toList(),
-          ),
-        ],
+        ),
       ),
     );
   }
 }
 
-class _GoalCard extends StatelessWidget {
-  const _GoalCard();
+class _Favorites extends StatelessWidget {
+  const _Favorites();
 
   @override
   Widget build(BuildContext context) {
-    return const GlassCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Hedef',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
-          ),
-          SizedBox(height: 10),
-          Text(
-            'Fitness hareketlerinde form hatalarını azaltmak, sakatlanma riskini düşürmek ve daha güvenli antrenman alışkanlığı geliştirmek.',
-            style: TextStyle(color: AppColors.textSoft, height: 1.5),
-          ),
-        ],
-      ),
+    final l10n = context.l10n;
+    return ValueListenableBuilder<Set<ExerciseId>>(
+      valueListenable: FavoriteExercisesStore.favorites,
+      builder: (context, favorites, _) {
+        if (favorites.isEmpty) return const SizedBox.shrink();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SectionHeader(title: l10n.profileFavorites),
+            AppCard(
+              padding: EdgeInsets.zero,
+              child: Column(
+                children: [
+                  for (final exercise in favorites)
+                    ListTile(
+                      leading: IconBadge(icon: exercise.icon, size: 36),
+                      title: Text(exercise.title(l10n)),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              ExerciseDetailPage(exercise: exercise),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

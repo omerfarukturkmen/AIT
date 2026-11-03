@@ -1,5 +1,8 @@
-/// Parsed backend `/upload-video` JSON payload.
+/// Parsed result payload of a completed analysis (GET /analysis/{id}).
 class BackendAnalysisResponse {
+  final int? analysisId;
+  final String exerciseType;
+  final DateTime? createdAt;
   final String status;
   final String exercise;
   final int score;
@@ -28,6 +31,9 @@ class BackendAnalysisResponse {
   final double averageMotion;
 
   const BackendAnalysisResponse({
+    this.analysisId,
+    this.exerciseType = '',
+    this.createdAt,
     required this.status,
     required this.exercise,
     required this.score,
@@ -114,7 +120,18 @@ class BackendAnalysisResponse {
           (100 - score),
     );
 
+    final rawId = nested['analysis_id'];
+    final rawDate = nested['created_at'];
+
     return BackendAnalysisResponse(
+      analysisId: rawId == null ? null : asInt(rawId),
+      exerciseType: (nested['exercise_type'] ?? '').toString(),
+      // The backend stores naive UTC timestamps.
+      createdAt: rawDate == null
+          ? null
+          : DateTime.tryParse(
+              rawDate.toString().endsWith('Z') ? '$rawDate' : '${rawDate}Z',
+            )?.toLocal(),
       status: (nested['status'] ?? root['status'] ?? '').toString(),
       exercise:
           (nested['exercise_name'] ??
