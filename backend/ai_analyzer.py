@@ -24,6 +24,7 @@ if str(_AI_SRC) not in sys.path:
 
 from exercise_registry import display_exercise_name  # noqa: E402
 from pose_detector import resolve_pose_model_path  # noqa: E402
+from visibility_utils import ANALYSIS_STATUS_INSUFFICIENT_VISIBILITY  # noqa: E402
 from video_processor import (  # noqa: E402
     UnsupportedExerciseError,
     VideoValidationError,
@@ -45,10 +46,25 @@ _ERROR_SEVERITY: dict[str, float] = {
 class AnalysisError(Exception):
     """Raised when video analysis fails validation or processing."""
 
-    def __init__(self, message: str, *, status_code: int = 500) -> None:
+    def __init__(
+        self,
+        message: str,
+        *,
+        status_code: int = 500,
+        user_message: str | None = None,
+    ) -> None:
         super().__init__(message)
         self.status_code = status_code
         self.message = message
+        # Safe, specific text for the user; None = use the generic text.
+        self.user_message = user_message
+
+
+NO_PERSON_MESSAGE = (
+    "Videoda vücudun net görünmedi. Telefonu sabitle, tüm vücudun "
+    "kadrajda olsun ve iyi ışıkta tekrar çek."
+)
+NO_REPS_CODE = "no_completed_reps"
 
 
 def _depth_quality_score(ai_result: dict[str, Any]) -> float:
@@ -141,7 +157,11 @@ def _select_score(
     completed = int(ai_result.get("valid_reps") or 0) + int(
         ai_result.get("invalid_reps") or 0
     )
-    if completed > 0 and isinstance(overall, (int, float)):
+    if completed == 0:
+        # No finished rep means nothing was scored; a "43" here read as a
+        # real (poor) result. The app shows the no_completed_reps issue.
+        return 0, components
+    if isinstance(overall, (int, float)):
         return max(0, min(100, int(round(overall)))), components
     return _compute_score(ai_result, metrics), components
 
@@ -227,6 +247,14 @@ def analyze_video(video_path: str, exercise_type: str) -> dict[str, Any]:
         # summary schema. Reading ai_result here reported 0 reps.
         ai_result = analysis.get("domain_result") or analysis["ai_result"]
         metrics = analysis["metrics"]
+        if ai_result.get("analysis_status") == ANALYSIS_STATUS_INSUFFICIENT_VISIBILITY:
+            # No usable body landmarks in the whole video: there is nothing
+            # to score, so fail with guidance instead of a low score.
+            raise AnalysisError(
+                "No usable pose landmarks in the video",
+                status_code=422,
+                user_message=NO_PERSON_MESSAGE,
+            )
         schema = analysis.get("ai_result") or {}
         score, score_components = _select_score(ai_result, schema, metrics)
         top_feedback = list((schema.get("feedback") or {}).get("top") or [])
@@ -235,6 +263,8 @@ def analyze_video(video_path: str, exercise_type: str) -> dict[str, Any]:
         valid_reps = int(ai_result.get("valid_reps") or 0)
         invalid_reps = int(ai_result.get("invalid_reps") or 0)
         errors = list(ai_result.get("errors") or [])
+        if valid_reps + invalid_reps == 0 and NO_REPS_CODE not in errors:
+            errors.insert(0, NO_REPS_CODE)
         camera_warnings = list(metrics.get("camera_warnings") or [])
         feedback = _feedback_text(ai_result, score)
         rep_history = list(ai_result.get("rep_history") or [])
