@@ -201,6 +201,11 @@ def _open_video_capture(
     if not cap.isOpened():
         raise VideoValidationError(f"Video acilamadi: {resolved_video}")
 
+    # Phone videos (iPhone .MOV especially) are stored sideways with a
+    # rotation tag. Without applying it the person looks lying down: knee
+    # angles survive, but torso lean is ~90 deg off and form scores collapse.
+    cap.set(cv2.CAP_PROP_ORIENTATION_AUTO, 1)
+
     fps = float(cap.get(cv2.CAP_PROP_FPS) or 0.0)
     reported_frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
 
