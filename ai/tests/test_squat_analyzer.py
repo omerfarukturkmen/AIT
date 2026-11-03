@@ -202,3 +202,34 @@ def test_real_video_img_5512_if_present():
     assert len(domain.get("rep_history") or []) == 2
     assert metrics["processed_frames"] > 0
     assert metrics["mean_landmark_visibility"] > 0
+
+
+def _one_squat(bottom: float) -> list[float]:
+    return (
+        _hold(168, 12)
+        + _ramp(168, bottom, 18)
+        + _hold(bottom, 4)
+        + _ramp(bottom, 168, 18)
+        + _hold(168, 12)
+    )
+
+
+def test_front_view_full_squat_near_parallel_counts_as_valid():
+    # A full squat filmed from the front measured 103 deg (squat_5_test.MOV).
+    a = SquatAnalyzer(fps=30)
+    _feed(a, _one_squat(103))
+    result = a.get_result()
+    assert result["valid_reps"] == 1
+    assert result["invalid_reps"] == 0
+
+
+def test_acceptable_but_shallow_squat_is_a_failed_rep_not_dropped():
+    # Before: depth "acceptable" (<=115) yet above the valid limit, so the rep
+    # was neither valid nor recorded as failed - it silently disappeared.
+    a = SquatAnalyzer(fps=30)
+    _feed(a, _one_squat(113))
+    result = a.get_result()
+    assert result["rep_count"] == 1
+    assert result["valid_reps"] == 0
+    assert result["invalid_reps"] == 1
+    assert "insufficient_depth" in result["rep_history"][0]["errors"]

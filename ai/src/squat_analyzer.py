@@ -15,8 +15,11 @@ STANDING_ENTER = 155.0
 STANDING_EXIT = 145.0
 BOTTOM_ENTER = 100.0
 BOTTOM_EXIT = 115.0
-VALID_DEPTH_ANGLE = 100.0
-INSUFFICIENT_DEPTH_ANGLE = 100.0
+# Front-facing phone videos read the knee a few degrees "straighter" than a
+# side view: a full squat measured 103 deg from the front. 110 keeps those
+# reps valid while half squats (~150 deg) stay well above it.
+VALID_DEPTH_ANGLE = 110.0
+INSUFFICIENT_DEPTH_ANGLE = 110.0
 TOO_DEEP_KNEE_ANGLE = 55.0
 
 # End-of-video completion (finished ascent without full state confirm)
@@ -518,11 +521,14 @@ class SquatAnalyzer:
         return True
 
     def _should_record_incomplete_rep(self) -> bool:
+        """A real descent that did not earn a valid rep is a failed rep.
+
+        Any attempt that dropped MIN_DESCENT_ANGLE_CHANGE below the standing
+        reference and was not counted as valid (too shallow, or "acceptable"
+        depth that still missed VALID_DEPTH_ANGLE) is recorded as invalid, so
+        the user sees "go deeper" instead of the rep silently disappearing.
+        """
         if not self.rep_in_progress or self.incomplete_rep_recorded or self.rep_counted:
-            return False
-        if not self.descent_started:
-            return False
-        if self.depth_confirmed:
             return False
         return self._meaningful_descent_amplitude(
             None, self._smoothed_average or 0.0
@@ -1126,7 +1132,13 @@ class SquatAnalyzer:
             self._confirmed_state = "standing"
         elif self.rep_in_progress and not self._incomplete_end_handled:
             self._incomplete_end_handled = True
-            if self.descent_started and self._should_record_incomplete_rep():
+            # Video ended mid-rep: keep the stricter rule (no confirmed depth)
+            # so a clip cut during the ascent does not add a failed rep.
+            if (
+                self.descent_started
+                and not self.depth_confirmed
+                and self._should_record_incomplete_rep()
+            ):
                 self._complete_rep(return_angle=self._smoothed_average)
             elif self.descent_started:
                 self._register_error("incomplete_rep")
