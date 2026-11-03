@@ -593,5 +593,81 @@
         "type": "String"
       }
     }
-  }
+  },
+  "homeGreetingMorning": "Günaydın, {name}",
+  "@homeGreetingMorning": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "homeGreetingEvening": "İyi akşamlar, {name}",
+  "@homeGreetingEvening": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "homeSubtitle": "{date} · Bugün formunu bir adım ileri taşıyalım.",
+  "@homeSubtitle": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "homeHeroStreak": "Bu hafta {count} analiz yaptın, harika gidiyorsun!",
+  "@homeHeroStreak": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "menuTitle": "Menü",
+  "menuOpen": "Menüyü aç",
+  "menuSubtitle": "Bugün ne yapmak istersin?",
+  "menuProgressBody": "Kilo, ölçüler ve VKİ",
+  "menuHistoryBody": "Tüm analizlerin",
+  "menuSettingsBody": "Tema, dil ve hesap",
+  "progressMyDetails": "Bilgilerim",
+  "detailsTitle": "Kişisel bilgilerin",
+  "detailsBody": "Bu bilgiler sana özel hesaplamalar için kullanılır ve yalnızca bu cihazda saklanır.",
+  "sexLabel": "Cinsiyet",
+  "sexFemale": "Kadın",
+  "sexMale": "Erkek",
+  "birthYearLabel": "Doğum yılı",
+  "bmiPersonalizeTitle": "Sana özel değerlendirme",
+  "bmiPersonalizeBody": "Cinsiyetini ve doğum yılını eklersen vücut yağ oranını cinsiyetine göre hesaplayalım.",
+  "bmiNeedHeight": "VKİ'ni hesaplamak için boyunu ekle.",
+  "bmiBodyFat": "Tahmini vücut yağı",
+  "bmiBodyFatFor": "{sex} için",
+  "@bmiBodyFatFor": {
+    "placeholders": {
+      "sex": {
+        "type": "String"
+      }
+    }
+  },
+  "bmiHealthyRange": "Boyuna göre sağlıklı kilo: {min}–{max} kg",
+  "@bmiHealthyRange": {
+    "placeholders": {
+      "min": {
+        "type": "String"
+      },
+      "max": {
+        "type": "String"
+      }
+    }
+  },
+  "bmiMethodNote": "VKİ kadın ve erkekte aynı formülle hesaplanır. Vücut yağı ise cinsiyet ve yaşa göre tahmin edilir (Deurenberg formülü); ölçüm değildir.",
+  "bmiAdultsOnly": "Vücut yağı tahmini 18 yaş ve üzeri için geçerlidir.",
+  "bodyFatEssential": "Temel yağ",
+  "bodyFatAthletic": "Atletik",
+  "bodyFatFitness": "Fit",
+  "bodyFatAverage": "Ortalama",
+  "bodyFatHigh": "Yüksek",
+  "detailsSaved": "Bilgilerin kaydedildi."
 }

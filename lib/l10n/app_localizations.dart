@@ -2341,6 +2341,192 @@ abstract class AppLocalizations {
   /// In tr, this message translates to:
   /// **'Son güncelleme: {date}'**
   String legalLastUpdated(String date);
+
+  /// No description provided for @homeGreetingMorning.
+  ///
+  /// In tr, this message translates to:
+  /// **'Günaydın, {name}'**
+  String homeGreetingMorning(String name);
+
+  /// No description provided for @homeGreetingEvening.
+  ///
+  /// In tr, this message translates to:
+  /// **'İyi akşamlar, {name}'**
+  String homeGreetingEvening(String name);
+
+  /// No description provided for @homeSubtitle.
+  ///
+  /// In tr, this message translates to:
+  /// **'{date} · Bugün formunu bir adım ileri taşıyalım.'**
+  String homeSubtitle(String date);
+
+  /// No description provided for @homeHeroStreak.
+  ///
+  /// In tr, this message translates to:
+  /// **'Bu hafta {count} analiz yaptın, harika gidiyorsun!'**
+  String homeHeroStreak(int count);
+
+  /// No description provided for @menuTitle.
+  ///
+  /// In tr, this message translates to:
+  /// **'Menü'**
+  String get menuTitle;
+
+  /// No description provided for @menuOpen.
+  ///
+  /// In tr, this message translates to:
+  /// **'Menüyü aç'**
+  String get menuOpen;
+
+  /// No description provided for @menuSubtitle.
+  ///
+  /// In tr, this message translates to:
+  /// **'Bugün ne yapmak istersin?'**
+  String get menuSubtitle;
+
+  /// No description provided for @menuProgressBody.
+  ///
+  /// In tr, this message translates to:
+  /// **'Kilo, ölçüler ve VKİ'**
+  String get menuProgressBody;
+
+  /// No description provided for @menuHistoryBody.
+  ///
+  /// In tr, this message translates to:
+  /// **'Tüm analizlerin'**
+  String get menuHistoryBody;
+
+  /// No description provided for @menuSettingsBody.
+  ///
+  /// In tr, this message translates to:
+  /// **'Tema, dil ve hesap'**
+  String get menuSettingsBody;
+
+  /// No description provided for @progressMyDetails.
+  ///
+  /// In tr, this message translates to:
+  /// **'Bilgilerim'**
+  String get progressMyDetails;
+
+  /// No description provided for @detailsTitle.
+  ///
+  /// In tr, this message translates to:
+  /// **'Kişisel bilgilerin'**
+  String get detailsTitle;
+
+  /// No description provided for @detailsBody.
+  ///
+  /// In tr, this message translates to:
+  /// **'Bu bilgiler sana özel hesaplamalar için kullanılır ve yalnızca bu cihazda saklanır.'**
+  String get detailsBody;
+
+  /// No description provided for @sexLabel.
+  ///
+  /// In tr, this message translates to:
+  /// **'Cinsiyet'**
+  String get sexLabel;
+
+  /// No description provided for @sexFemale.
+  ///
+  /// In tr, this message translates to:
+  /// **'Kadın'**
+  String get sexFemale;
+
+  /// No description provided for @sexMale.
+  ///
+  /// In tr, this message translates to:
+  /// **'Erkek'**
+  String get sexMale;
+
+  /// No description provided for @birthYearLabel.
+  ///
+  /// In tr, this message translates to:
+  /// **'Doğum yılı'**
+  String get birthYearLabel;
+
+  /// No description provided for @bmiPersonalizeTitle.
+  ///
+  /// In tr, this message translates to:
+  /// **'Sana özel değerlendirme'**
+  String get bmiPersonalizeTitle;
+
+  /// No description provided for @bmiPersonalizeBody.
+  ///
+  /// In tr, this message translates to:
+  /// **'Cinsiyetini ve doğum yılını eklersen vücut yağ oranını cinsiyetine göre hesaplayalım.'**
+  String get bmiPersonalizeBody;
+
+  /// No description provided for @bmiNeedHeight.
+  ///
+  /// In tr, this message translates to:
+  /// **'VKİ\'ni hesaplamak için boyunu ekle.'**
+  String get bmiNeedHeight;
+
+  /// No description provided for @bmiBodyFat.
+  ///
+  /// In tr, this message translates to:
+  /// **'Tahmini vücut yağı'**
+  String get bmiBodyFat;
+
+  /// No description provided for @bmiBodyFatFor.
+  ///
+  /// In tr, this message translates to:
+  /// **'{sex} için'**
+  String bmiBodyFatFor(String sex);
+
+  /// No description provided for @bmiHealthyRange.
+  ///
+  /// In tr, this message translates to:
+  /// **'Boyuna göre sağlıklı kilo: {min}–{max} kg'**
+  String bmiHealthyRange(String min, String max);
+
+  /// No description provided for @bmiMethodNote.
+  ///
+  /// In tr, this message translates to:
+  /// **'VKİ kadın ve erkekte aynı formülle hesaplanır. Vücut yağı ise cinsiyet ve yaşa göre tahmin edilir (Deurenberg formülü); ölçüm değildir.'**
+  String get bmiMethodNote;
+
+  /// No description provided for @bmiAdultsOnly.
+  ///
+  /// In tr, this message translates to:
+  /// **'Vücut yağı tahmini 18 yaş ve üzeri için geçerlidir.'**
+  String get bmiAdultsOnly;
+
+  /// No description provided for @bodyFatEssential.
+  ///
+  /// In tr, this message translates to:
+  /// **'Temel yağ'**
+  String get bodyFatEssential;
+
+  /// No description provided for @bodyFatAthletic.
+  ///
+  /// In tr, this message translates to:
+  /// **'Atletik'**
+  String get bodyFatAthletic;
+
+  /// No description provided for @bodyFatFitness.
+  ///
+  /// In tr, this message translates to:
+  /// **'Fit'**
+  String get bodyFatFitness;
+
+  /// No description provided for @bodyFatAverage.
+  ///
+  /// In tr, this message translates to:
+  /// **'Ortalama'**
+  String get bodyFatAverage;
+
+  /// No description provided for @bodyFatHigh.
+  ///
+  /// In tr, this message translates to:
+  /// **'Yüksek'**
+  String get bodyFatHigh;
+
+  /// No description provided for @detailsSaved.
+  ///
+  /// In tr, this message translates to:
+  /// **'Bilgilerin kaydedildi.'**
+  String get detailsSaved;
 }
 
 class _AppLocalizationsDelegate

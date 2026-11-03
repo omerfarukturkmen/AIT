@@ -15,7 +15,7 @@ class IconBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tint = color ?? context.colors.primary;
+    final tint = color ?? context.colors.secondary;
     return Container(
       width: size,
       height: size,
@@ -253,7 +253,7 @@ class _RingPainter extends CustomPainter {
       old.progress != progress || old.color != color || old.track != track;
 }
 
-/// App logo mark (gradient tile with a dumbbell).
+/// App logo mark (black tile with a volt dumbbell).
 class BrandMark extends StatelessWidget {
   final double size;
 
@@ -267,15 +267,19 @@ class BrandMark extends StatelessWidget {
         height: size,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(size * 0.28),
+          border: Border.all(
+            color: AppTheme.volt.withValues(alpha: 0.6),
+            width: size > 40 ? 1.5 : 1,
+          ),
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF8B6CFF), Color(0xFF4F7BFF)],
+            colors: [Color(0xFF22262C), AppTheme.ink],
           ),
         ),
         child: Icon(
           Icons.fitness_center_rounded,
-          color: Colors.white,
+          color: AppTheme.volt,
           size: size * 0.52,
         ),
       ),

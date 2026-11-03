@@ -40,7 +40,7 @@ class ProgressPage extends StatelessWidget {
           children: [
             const _ScoreTrend(),
             _WeightSection(body: body),
-            if (body.bmi != null) _BmiCard(bmi: body.bmi!),
+            if (body.currentWeight != null) _BmiCard(body: body),
             _MeasurementsSection(body: body),
             const SizedBox(height: Gap.xl),
             Row(
@@ -131,8 +131,8 @@ class _WeightSection extends StatelessWidget {
       children: [
         SectionHeader(
           title: l10n.progressWeightTitle,
-          actionLabel: l10n.progressGoalAndHeight,
-          onAction: () => _editProfile(context, body),
+          actionLabel: l10n.progressMyDetails,
+          onAction: () => _editDetails(context, body),
         ),
         if (current == null)
           EmptyState(
@@ -241,15 +241,56 @@ class _WeightSection extends StatelessWidget {
   }
 }
 
-class _BmiCard extends StatelessWidget {
-  final double bmi;
+String sexName(AppLocalizations l10n, Sex sex) => switch (sex) {
+  Sex.female => l10n.sexFemale,
+  Sex.male => l10n.sexMale,
+};
 
-  const _BmiCard({required this.bmi});
+/// BMI with WHO category and scale, plus a sex- and age-specific body-fat
+/// estimate when the user has entered those details.
+class _BmiCard extends StatelessWidget {
+  final BodyProgress body;
+
+  const _BmiCard({required this.body});
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final tokens = context.tokens;
+    final bmi = body.bmi;
+    final now = DateTime.now();
+    final age = body.ageAt(now);
+    final sex = body.sex;
+    final fat = body.bodyFatPercent(now);
+    final range = body.healthyWeightRange;
+
+    Widget personalize(String message) => Row(
+      children: [
+        IconBadge(
+          icon: Icons.person_search_rounded,
+          color: context.colors.secondary,
+          size: 36,
+        ),
+        const SizedBox(width: Gap.md),
+        Expanded(child: Text(message, style: context.text.bodySmall)),
+        TextButton(
+          key: const Key('bmi_personalize'),
+          onPressed: () => _editDetails(context, body),
+          child: Text(l10n.progressMyDetails),
+        ),
+      ],
+    );
+
+    if (bmi == null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SectionHeader(title: l10n.bmiTitle),
+          AppCard(child: personalize(l10n.bmiNeedHeight)),
+        ],
+      );
+    }
+
     final (label, color) = bmi < 18.5
         ? (l10n.bmiUnder, tokens.warning)
         : bmi < 25
@@ -263,21 +304,168 @@ class _BmiCard extends StatelessWidget {
       children: [
         SectionHeader(title: l10n.bmiTitle),
         AppCard(
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(bmi.toStringAsFixed(1), style: context.text.headlineMedium),
-              const SizedBox(width: Gap.md),
-              Pill(label: label, color: color),
-              const Spacer(),
-              Flexible(
-                child: Text(
-                  l10n.bmiNote,
-                  textAlign: TextAlign.end,
-                  style: context.text.bodySmall,
+              Row(
+                children: [
+                  Text(
+                    bmi.toStringAsFixed(1),
+                    style: context.text.headlineMedium,
+                  ),
+                  const SizedBox(width: Gap.md),
+                  Pill(label: label, color: color),
+                  const Spacer(),
+                  if (sex != null)
+                    Pill(
+                      label: sexName(l10n, sex),
+                      icon: sex == Sex.female
+                          ? Icons.female_rounded
+                          : Icons.male_rounded,
+                      color: context.colors.secondary,
+                    ),
+                ],
+              ),
+              const SizedBox(height: Gap.md),
+              _BmiScale(bmi: bmi),
+              if (range != null) ...[
+                const SizedBox(height: Gap.md),
+                Text(
+                  l10n.bmiHealthyRange(_kg(range.$1), _kg(range.$2)),
+                  style: context.text.bodyMedium,
+                ),
+              ],
+              const SizedBox(height: Gap.lg),
+              const Divider(),
+              const SizedBox(height: Gap.lg),
+              if (fat != null && sex != null)
+                _BodyFatRow(percent: fat, sex: sex)
+              else if (sex != null && age != null && age < 18)
+                Text(l10n.bmiAdultsOnly, style: context.text.bodySmall)
+              else
+                personalize(l10n.bmiPersonalizeBody),
+              const SizedBox(height: Gap.md),
+              Text(l10n.bmiMethodNote, style: context.text.bodySmall),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Horizontal BMI scale (15-35) with the four WHO bands and a marker.
+class _BmiScale extends StatelessWidget {
+  final double bmi;
+
+  const _BmiScale({required this.bmi});
+
+  static const double _min = 15, _max = 35;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    final bands = [
+      (18.5 - _min, tokens.warning),
+      (25 - 18.5, tokens.success),
+      (30 - 25.0, tokens.warning),
+      (_max - 30, tokens.danger),
+    ];
+    final position = ((bmi - _min) / (_max - _min)).clamp(0.0, 1.0);
+
+    return ExcludeSemantics(
+      child: SizedBox(
+        height: 18,
+        child: LayoutBuilder(
+          builder: (context, constraints) => Stack(
+            children: [
+              Positioned.fill(
+                top: 6,
+                bottom: 6,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (final (i, (width, color)) in bands.indexed) ...[
+                      if (i > 0) const SizedBox(width: 2),
+                      Expanded(
+                        flex: (width * 10).round(),
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: color.withValues(alpha: 0.55),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              Positioned(
+                left: position * (constraints.maxWidth - 6),
+                top: 0,
+                bottom: 0,
+                child: Container(
+                  width: 6,
+                  decoration: BoxDecoration(
+                    color: context.colors.onSurface,
+                    borderRadius: BorderRadius.circular(3),
+                    border: Border.all(color: context.colors.surface),
+                  ),
                 ),
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BodyFatRow extends StatelessWidget {
+  final double percent;
+  final Sex sex;
+
+  const _BodyFatRow({required this.percent, required this.sex});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final tokens = context.tokens;
+    final (label, color) = switch (bodyFatBand(percent, sex)) {
+      BodyFatBand.essential => (l10n.bodyFatEssential, tokens.warning),
+      BodyFatBand.athletic => (l10n.bodyFatAthletic, tokens.success),
+      BodyFatBand.fitness => (l10n.bodyFatFitness, tokens.success),
+      BodyFatBand.average => (l10n.bodyFatAverage, tokens.info),
+      BodyFatBand.high => (l10n.bodyFatHigh, tokens.danger),
+    };
+    final percentText = NumberFormat.decimalPercentPattern(
+      locale: Localizations.localeOf(context).toLanguageTag(),
+      decimalDigits: 1,
+    ).format(percent / 100);
+
+    return Row(
+      children: [
+        IconBadge(icon: Icons.water_drop_outlined, color: color),
+        const SizedBox(width: Gap.md),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(l10n.bmiBodyFat, style: context.text.labelMedium),
+              Text(percentText, style: context.text.titleLarge),
+            ],
+          ),
+        ),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Pill(label: label, color: color),
+            const SizedBox(height: 4),
+            Text(
+              l10n.bmiBodyFatFor(sexName(l10n, sex)),
+              style: context.text.bodySmall,
+            ),
+          ],
         ),
       ],
     );
@@ -460,31 +648,186 @@ Future<void> _addMeasurement(BuildContext context) async {
   if (cm != null) await BodyProgressStore.addMeasurement(type, cm);
 }
 
-Future<void> _editProfile(BuildContext context, BodyProgress body) async {
-  final l10n = context.l10n;
-  final height = await _askNumber(
-    context,
-    title: l10n.progressHeight,
-    label: l10n.progressHeight,
-    unit: 'cm',
-    min: 80,
-    max: 250,
-    initial: body.heightCm,
+Future<void> _editDetails(BuildContext context, BodyProgress body) async {
+  final saved = await showModalBottomSheet<bool>(
+    context: context,
+    isScrollControlled: true,
+    builder: (_) => _DetailsSheet(body: body),
   );
-  if (!context.mounted) return;
-  final target = await _askNumber(
-    context,
-    title: l10n.progressTargetWeight,
-    label: l10n.progressTargetWeight,
-    unit: 'kg',
-    min: 20,
-    max: 400,
-    initial: body.targetWeightKg,
+  if (saved == true && context.mounted) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(context.l10n.detailsSaved)));
+  }
+}
+
+/// Sex, birth year, height and target weight in one form.
+class _DetailsSheet extends StatefulWidget {
+  final BodyProgress body;
+
+  const _DetailsSheet({required this.body});
+
+  @override
+  State<_DetailsSheet> createState() => _DetailsSheetState();
+}
+
+class _DetailsSheetState extends State<_DetailsSheet> {
+  final _formKey = GlobalKey<FormState>();
+  late Sex? _sex = widget.body.sex;
+  late final _birthYear = TextEditingController(
+    text: widget.body.birthYear?.toString() ?? '',
   );
-  if (height != null || target != null) {
+  late final _height = TextEditingController(
+    text: widget.body.heightCm == null ? '' : _kg(widget.body.heightCm!),
+  );
+  late final _target = TextEditingController(
+    text: widget.body.targetWeightKg == null
+        ? ''
+        : _kg(widget.body.targetWeightKg!),
+  );
+
+  @override
+  void dispose() {
+    _birthYear.dispose();
+    _height.dispose();
+    _target.dispose();
+    super.dispose();
+  }
+
+  static double? _parse(String text) =>
+      double.tryParse(text.trim().replaceAll(',', '.'));
+
+  String? Function(String?) _range(double min, double max, String unit) {
+    return (value) {
+      if (value == null || value.trim().isEmpty) return null;
+      final number = _parse(value);
+      if (number == null || number < min || number > max) {
+        return context.l10n.progressRangeError(_kg(min), _kg(max), unit);
+      }
+      return null;
+    };
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
     await BodyProgressStore.setProfile(
-      heightCm: height,
-      targetWeightKg: target,
+      sex: _sex,
+      birthYear: int.tryParse(_birthYear.text.trim()),
+      heightCm: _parse(_height.text),
+      targetWeightKg: _parse(_target.text),
+    );
+    if (mounted) Navigator.of(context).pop(true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final thisYear = DateTime.now().year;
+    final decimal = [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))];
+
+    return Padding(
+      padding: EdgeInsets.only(
+        left: Gap.page,
+        right: Gap.page,
+        bottom: MediaQuery.viewInsetsOf(context).bottom + Gap.xl,
+      ),
+      child: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(l10n.detailsTitle, style: context.text.titleLarge),
+              const SizedBox(height: Gap.xs),
+              Text(l10n.detailsBody, style: context.text.bodySmall),
+              const SizedBox(height: Gap.xl),
+              Text(l10n.sexLabel, style: context.text.labelLarge),
+              const SizedBox(height: Gap.sm),
+              SegmentedButton<Sex>(
+                key: const Key('details_sex'),
+                showSelectedIcon: false,
+                emptySelectionAllowed: true,
+                segments: [
+                  ButtonSegment(
+                    value: Sex.female,
+                    label: Text(l10n.sexFemale),
+                    icon: const Icon(Icons.female_rounded),
+                  ),
+                  ButtonSegment(
+                    value: Sex.male,
+                    label: Text(l10n.sexMale),
+                    icon: const Icon(Icons.male_rounded),
+                  ),
+                ],
+                selected: {?_sex},
+                onSelectionChanged: (value) =>
+                    setState(() => _sex = value.firstOrNull),
+              ),
+              const SizedBox(height: Gap.lg),
+              TextFormField(
+                key: const Key('details_birth_year'),
+                controller: _birthYear,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: InputDecoration(labelText: l10n.birthYearLabel),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) return null;
+                  final year = int.tryParse(value.trim());
+                  final (min, max) = (thisYear - 100, thisYear - 10);
+                  if (year == null || year < min || year > max) {
+                    return l10n.progressRangeError('$min', '$max', '');
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: Gap.lg),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      key: const Key('details_height'),
+                      controller: _height,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      inputFormatters: decimal,
+                      decoration: InputDecoration(
+                        labelText: l10n.progressHeight,
+                        suffixText: 'cm',
+                      ),
+                      validator: _range(80, 250, 'cm'),
+                    ),
+                  ),
+                  const SizedBox(width: Gap.md),
+                  Expanded(
+                    child: TextFormField(
+                      key: const Key('details_target'),
+                      controller: _target,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      inputFormatters: decimal,
+                      decoration: InputDecoration(
+                        labelText: l10n.progressTargetWeight,
+                        suffixText: 'kg',
+                      ),
+                      validator: _range(20, 400, 'kg'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: Gap.xl),
+              FilledButton(
+                key: const Key('details_save'),
+                onPressed: _save,
+                child: Text(l10n.commonSave),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

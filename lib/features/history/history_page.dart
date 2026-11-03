@@ -82,7 +82,10 @@ class _HistoryPageState extends State<HistoryPage> {
                     title: l10n.homeEmptyTitle,
                     message: l10n.homeEmptyBody,
                     actionLabel: l10n.homeNewAnalysis,
-                    onAction: () => NavigationStore.go(AppTab.home),
+                    onAction: () {
+                      NavigationStore.go(AppTab.home);
+                      Navigator.of(context).popUntil((route) => route.isFirst);
+                    },
                   )
                 else if (filtered.isEmpty)
                   EmptyState(

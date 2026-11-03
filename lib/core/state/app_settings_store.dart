@@ -44,7 +44,8 @@ class AppSettingsStore {
 
   static final ValueNotifier<AppSettings> settings = ValueNotifier(
     AppSettings(
-      themeMode: ThemeMode.system,
+      // The brand is built on black, so new installs start dark.
+      themeMode: ThemeMode.dark,
       languageCode: _deviceLanguage(),
       voiceFeedbackEnabled: true,
     ),

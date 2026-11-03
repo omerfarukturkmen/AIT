@@ -1268,4 +1268,113 @@ class AppLocalizationsTr extends AppLocalizations {
   String legalLastUpdated(String date) {
     return 'Son güncelleme: $date';
   }
+
+  @override
+  String homeGreetingMorning(String name) {
+    return 'Günaydın, $name';
+  }
+
+  @override
+  String homeGreetingEvening(String name) {
+    return 'İyi akşamlar, $name';
+  }
+
+  @override
+  String homeSubtitle(String date) {
+    return '$date · Bugün formunu bir adım ileri taşıyalım.';
+  }
+
+  @override
+  String homeHeroStreak(int count) {
+    return 'Bu hafta $count analiz yaptın, harika gidiyorsun!';
+  }
+
+  @override
+  String get menuTitle => 'Menü';
+
+  @override
+  String get menuOpen => 'Menüyü aç';
+
+  @override
+  String get menuSubtitle => 'Bugün ne yapmak istersin?';
+
+  @override
+  String get menuProgressBody => 'Kilo, ölçüler ve VKİ';
+
+  @override
+  String get menuHistoryBody => 'Tüm analizlerin';
+
+  @override
+  String get menuSettingsBody => 'Tema, dil ve hesap';
+
+  @override
+  String get progressMyDetails => 'Bilgilerim';
+
+  @override
+  String get detailsTitle => 'Kişisel bilgilerin';
+
+  @override
+  String get detailsBody =>
+      'Bu bilgiler sana özel hesaplamalar için kullanılır ve yalnızca bu cihazda saklanır.';
+
+  @override
+  String get sexLabel => 'Cinsiyet';
+
+  @override
+  String get sexFemale => 'Kadın';
+
+  @override
+  String get sexMale => 'Erkek';
+
+  @override
+  String get birthYearLabel => 'Doğum yılı';
+
+  @override
+  String get bmiPersonalizeTitle => 'Sana özel değerlendirme';
+
+  @override
+  String get bmiPersonalizeBody =>
+      'Cinsiyetini ve doğum yılını eklersen vücut yağ oranını cinsiyetine göre hesaplayalım.';
+
+  @override
+  String get bmiNeedHeight => 'VKİ\'ni hesaplamak için boyunu ekle.';
+
+  @override
+  String get bmiBodyFat => 'Tahmini vücut yağı';
+
+  @override
+  String bmiBodyFatFor(String sex) {
+    return '$sex için';
+  }
+
+  @override
+  String bmiHealthyRange(String min, String max) {
+    return 'Boyuna göre sağlıklı kilo: $min–$max kg';
+  }
+
+  @override
+  String get bmiMethodNote =>
+      'VKİ kadın ve erkekte aynı formülle hesaplanır. Vücut yağı ise cinsiyet ve yaşa göre tahmin edilir (Deurenberg formülü); ölçüm değildir.';
+
+  @override
+  String get bmiAdultsOnly =>
+      'Vücut yağı tahmini 18 yaş ve üzeri için geçerlidir.';
+
+  @override
+  String get bodyFatEssential => 'Temel yağ';
+
+  @override
+  String get bodyFatAthletic => 'Atletik';
+
+  @override
+  String get bodyFatFitness => 'Fit';
+
+  @override
+  String get bodyFatAverage => 'Ortalama';
+
+  @override
+  String get bodyFatHigh => 'Yüksek';
+
+  @override
+  String get detailsSaved => 'Bilgilerin kaydedildi.';
 }

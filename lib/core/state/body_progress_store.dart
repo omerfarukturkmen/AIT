@@ -46,11 +46,18 @@ class BodyProgressStore {
     );
   }
 
-  static Future<void> setProfile({double? heightCm, double? targetWeightKg}) {
+  static Future<void> setProfile({
+    double? heightCm,
+    double? targetWeightKg,
+    Sex? sex,
+    int? birthYear,
+  }) {
     return _save(
       progress.value.copyWith(
         heightCm: heightCm,
         targetWeightKg: targetWeightKg,
+        sex: sex,
+        birthYear: birthYear,
       ),
     );
   }

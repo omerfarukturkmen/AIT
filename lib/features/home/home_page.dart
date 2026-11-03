@@ -9,6 +9,7 @@ import '../../core/state/selected_exercise_store.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/exercise_catalog.dart';
 import '../../data/weekly_workout_plan_data.dart';
+import '../../l10n/app_localizations.dart';
 import '../../models/analysis_result_model.dart';
 import '../../models/auth_session_model.dart';
 import '../../widgets/app_card.dart';
@@ -17,7 +18,15 @@ import '../../widgets/page_scaffold.dart';
 import '../analysis/start_analysis.dart';
 import '../auth/verify_email_sheet.dart';
 import '../exercise_detail/exercise_detail_page.dart';
+import '../navigation/app_menu.dart';
 import '../result/result_page.dart';
+
+/// "Good morning" 05-11, "Hi" 12-17, "Good evening" 18-04.
+String timeOfDayGreeting(AppLocalizations l10n, String name, int hour) {
+  if (hour >= 5 && hour < 12) return l10n.homeGreetingMorning(name);
+  if (hour >= 18 || hour < 5) return l10n.homeGreetingEvening(name);
+  return l10n.homeGreeting(name);
+}
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -33,11 +42,13 @@ class HomePage extends StatelessWidget {
           Localizations.localeOf(context).toLanguageTag(),
         ).format(DateTime.now());
 
+        final greeting = user == null
+            ? l10n.homeTitle
+            : timeOfDayGreeting(l10n, user.firstName, DateTime.now().hour);
+
         return PageScaffold(
-          title: user == null
-              ? l10n.homeTitle
-              : l10n.homeGreeting(user.firstName),
-          subtitle: today,
+          title: greeting,
+          subtitle: l10n.homeSubtitle(today),
           onRefresh: AnalysisHistoryStore.refresh,
           children: [
             if (user != null && !user.emailVerified) ...[
@@ -95,86 +106,139 @@ class _NewAnalysisCard extends StatelessWidget {
     return ValueListenableBuilder<ExerciseId>(
       valueListenable: SelectedExerciseStore.selectedExercise,
       builder: (context, selected, _) {
-        return AppCard(
-          padding: const EdgeInsets.all(Gap.lg + 4),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(l10n.homeNewAnalysis, style: context.text.titleLarge),
-              const SizedBox(height: Gap.xs),
-              Text(
-                l10n.homeNewAnalysisBody,
-                style: context.text.bodyMedium?.copyWith(
-                  color: context.tokens.textSecondary,
-                ),
-              ),
-              const SizedBox(height: Gap.lg),
-              SegmentedButton<ExerciseId>(
-                showSelectedIcon: false,
-                segments: [
-                  for (final exercise in supported)
-                    ButtonSegment(
-                      value: exercise,
-                      label: Text(exercise.title(l10n)),
-                      icon: Icon(exercise.icon, size: 18),
+        return HeroCard(
+          child: Builder(
+            builder: (context) => Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        l10n.homeNewAnalysis,
+                        style: context.text.titleLarge,
+                      ),
                     ),
-                ],
-                selected: {selected},
-                onSelectionChanged: (value) =>
-                    SelectedExerciseStore.select(value.first),
-              ),
-              const SizedBox(height: Gap.lg),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final upload = OutlinedButton.icon(
-                    key: const Key('home_upload'),
-                    onPressed: () =>
-                        StartAnalysis.fromGallery(context, selected),
-                    icon: const Icon(Icons.upload_rounded),
-                    label: Text(l10n.homeUploadVideo),
-                  );
-                  final record = FilledButton.icon(
-                    key: const Key('home_record'),
-                    onPressed: () =>
-                        StartAnalysis.withCamera(context, selected),
-                    icon: const Icon(Icons.videocam_rounded),
-                    label: Text(l10n.homeRecordVideo),
-                  );
-                  if (constraints.maxWidth < 360) {
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                    Icon(
+                      Icons.auto_awesome_rounded,
+                      color: context.colors.primary,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: Gap.xs),
+                Text(
+                  l10n.homeNewAnalysisBody,
+                  style: context.text.bodyMedium?.copyWith(
+                    color: context.tokens.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: Gap.lg),
+                SegmentedButton<ExerciseId>(
+                  showSelectedIcon: false,
+                  segments: [
+                    for (final exercise in supported)
+                      ButtonSegment(
+                        value: exercise,
+                        label: Text(exercise.title(l10n)),
+                        icon: Icon(exercise.icon, size: 18),
+                      ),
+                  ],
+                  selected: {selected},
+                  onSelectionChanged: (value) =>
+                      SelectedExerciseStore.select(value.first),
+                ),
+                const SizedBox(height: Gap.lg),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final upload = OutlinedButton.icon(
+                      key: const Key('home_upload'),
+                      onPressed: () =>
+                          StartAnalysis.fromGallery(context, selected),
+                      icon: const Icon(Icons.upload_rounded),
+                      label: Text(l10n.homeUploadVideo),
+                    );
+                    final record = FilledButton.icon(
+                      key: const Key('home_record'),
+                      onPressed: () =>
+                          StartAnalysis.withCamera(context, selected),
+                      icon: const Icon(Icons.videocam_rounded),
+                      label: Text(l10n.homeRecordVideo),
+                    );
+                    if (constraints.maxWidth < 360) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          record,
+                          const SizedBox(height: Gap.sm),
+                          upload,
+                        ],
+                      );
+                    }
+                    return Row(
                       children: [
-                        record,
-                        const SizedBox(height: Gap.sm),
-                        upload,
+                        Expanded(child: upload),
+                        const SizedBox(width: Gap.md),
+                        Expanded(child: record),
                       ],
                     );
-                  }
-                  return Row(
-                    children: [
-                      Expanded(child: upload),
-                      const SizedBox(width: Gap.md),
-                      Expanded(child: record),
-                    ],
-                  );
-                },
-              ),
-              const SizedBox(height: Gap.md),
-              Row(
-                children: [
-                  Icon(
-                    Icons.lightbulb_outline_rounded,
-                    size: 16,
-                    color: context.tokens.textTertiary,
-                  ),
-                  const SizedBox(width: Gap.xs + 2),
-                  Expanded(
-                    child: Text(
-                      l10n.homeCaptureTip,
-                      style: context.text.bodySmall,
+                  },
+                ),
+                const SizedBox(height: Gap.md),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.lightbulb_outline_rounded,
+                      size: 16,
+                      color: context.tokens.textTertiary,
                     ),
+                    const SizedBox(width: Gap.xs + 2),
+                    Expanded(
+                      child: Text(
+                        l10n.homeCaptureTip,
+                        style: context.text.bodySmall,
+                      ),
+                    ),
+                  ],
+                ),
+                const _WeekStreak(),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Encouraging line when the user has trained this week.
+class _WeekStreak extends StatelessWidget {
+  const _WeekStreak();
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<List<AnalysisResult>>(
+      valueListenable: AnalysisHistoryStore.results,
+      builder: (context, results, _) {
+        final weekAgo = DateTime.now().subtract(const Duration(days: 7));
+        final count = results.where((r) => r.createdAt.isAfter(weekAgo)).length;
+        if (count == 0) return const SizedBox.shrink();
+        return Padding(
+          padding: const EdgeInsets.only(top: Gap.md),
+          child: Row(
+            children: [
+              Icon(
+                Icons.local_fire_department_rounded,
+                size: 18,
+                color: context.colors.primary,
+              ),
+              const SizedBox(width: Gap.xs + 2),
+              Expanded(
+                child: Text(
+                  context.l10n.homeHeroStreak(count),
+                  style: context.text.labelLarge?.copyWith(
+                    color: context.colors.primary,
                   ),
-                ],
+                ),
               ),
             ],
           ),
@@ -252,7 +316,7 @@ class _LatestAnalysis extends StatelessWidget {
             SectionHeader(
               title: l10n.homeLatest,
               actionLabel: results.isEmpty ? null : l10n.commonSeeAll,
-              onAction: () => NavigationStore.go(AppTab.history),
+              onAction: () => AppMenu.open(context, MenuPage.history),
             ),
             if (results.isEmpty)
               EmptyState(

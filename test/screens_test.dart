@@ -6,6 +6,7 @@ import 'package:flutter_application_1/core/state/body_progress_store.dart';
 import 'package:flutter_application_1/core/state/navigation_store.dart';
 import 'package:flutter_application_1/data/exercise_catalog.dart';
 import 'package:flutter_application_1/features/exercise_detail/exercise_detail_page.dart';
+import 'package:flutter_application_1/features/home/home_page.dart';
 import 'package:flutter_application_1/features/legal/legal_page.dart';
 import 'package:flutter_application_1/features/navigation/main_navigation_page.dart';
 import 'package:flutter_application_1/features/onboarding/onboarding_page.dart';
@@ -94,7 +95,10 @@ void main() {
           );
           await tester.pumpAndSettle();
 
-          expect(find.text(l10n.homeGreeting('Ayşe')), findsOneWidget);
+          expect(
+            find.text(timeOfDayGreeting(l10n, 'Ayşe', DateTime.now().hour)),
+            findsOneWidget,
+          );
           expect(find.text(l10n.homeNewAnalysis), findsOneWidget);
           expect(tester.takeException(), isNull);
 
@@ -104,9 +108,23 @@ void main() {
             expect(tester.takeException(), isNull, reason: '$tab');
           }
 
-          NavigationStore.go(AppTab.history);
-          await tester.pumpAndSettle();
-          expect(find.text(l10n.historyCount(3)), findsOneWidget);
+          // Progress, history and settings open from the right-hand menu.
+          for (final page in ['progress', 'history', 'settings']) {
+            await tester.tap(find.byKey(const Key('open_menu')).hitTestable());
+            await tester.pumpAndSettle();
+            expect(find.byKey(const Key('app_menu')), findsOneWidget);
+            await tester.tap(find.byKey(Key('menu_$page')));
+            await tester.pumpAndSettle();
+            expect(tester.takeException(), isNull, reason: page);
+            if (page == 'history') {
+              expect(find.text(l10n.historyCount(3)), findsOneWidget);
+            }
+            if (page == 'progress') {
+              expect(find.text(l10n.bmiTitle), findsOneWidget);
+            }
+            await tester.tap(find.byType(BackButton));
+            await tester.pumpAndSettle();
+          }
 
           NavigationStore.go(AppTab.profile);
           await tester.pumpAndSettle();
@@ -115,6 +133,22 @@ void main() {
       );
     }
   }
+
+  test('the home greeting follows the time of day', () {
+    expect(
+      timeOfDayGreeting(trL10n, 'Ayşe', 8),
+      trL10n.homeGreetingMorning('Ayşe'),
+    );
+    expect(timeOfDayGreeting(trL10n, 'Ayşe', 14), trL10n.homeGreeting('Ayşe'));
+    expect(
+      timeOfDayGreeting(trL10n, 'Ayşe', 21),
+      trL10n.homeGreetingEvening('Ayşe'),
+    );
+    expect(
+      timeOfDayGreeting(enL10n, 'Ayşe', 2),
+      enL10n.homeGreetingEvening('Ayşe'),
+    );
+  });
 
   testWidgets('wide screens use a navigation rail, phones a bottom bar', (
     tester,

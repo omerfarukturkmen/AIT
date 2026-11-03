@@ -56,6 +56,49 @@ void main() {
     expect(BodyProgress.empty.goalProgress, isNull);
   });
 
+  test('body fat is estimated by sex and age; BMI itself is not', () {
+    final now = DateTime(2026, 10, 30);
+    final base = BodyProgress(
+      heightCm: 170,
+      birthYear: 1996,
+      weights: [WeightEntry(date: DateTime(2026, 10, 1), kg: 69)],
+    );
+    final female = base.copyWith(sex: Sex.female);
+    final male = base.copyWith(sex: Sex.male);
+
+    expect(female.bmi, male.bmi);
+    expect(base.bodyFatPercent(now), isNull); // sex unknown
+    // Deurenberg: 1.2 * BMI + 0.23 * age - 10.8 * male - 5.4
+    expect(female.bodyFatPercent(now), closeTo(30.15, 0.01));
+    expect(male.bodyFatPercent(now), closeTo(19.35, 0.01));
+    expect(
+      BodyProgress(
+        heightCm: 170,
+        sex: Sex.male,
+        birthYear: 2014,
+        weights: [WeightEntry(date: now, kg: 50)],
+      ).bodyFatPercent(now),
+      isNull, // not for under-18s
+    );
+
+    // The same percentage falls in different bands for women and men.
+    expect(bodyFatBand(20, Sex.female), BodyFatBand.athletic);
+    expect(bodyFatBand(20, Sex.male), BodyFatBand.average);
+    expect(bodyFatBand(33, Sex.female), BodyFatBand.high);
+
+    final (min, max) = base.healthyWeightRange!;
+    expect(min, closeTo(53.5, 0.1));
+    expect(max, closeTo(72.0, 0.1));
+  });
+
+  test('sex and birth year are saved with the body data', () async {
+    await BodyProgressStore.setProfile(sex: Sex.female, birthYear: 1998);
+    BodyProgressStore.clear();
+    await BodyProgressStore.load();
+    expect(BodyProgressStore.progress.value.sex, Sex.female);
+    expect(BodyProgressStore.progress.value.birthYear, 1998);
+  });
+
   test('favorites persist', () async {
     await FavoriteExercisesStore.toggle(ExerciseId.squat);
     FavoriteExercisesStore.clear();
