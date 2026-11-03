@@ -111,7 +111,7 @@ def test_migrations_upgrade_a_pre_auth_database(tmp_path):
     assert con.execute("select username from users").fetchall() == [("eski",)]
     assert con.execute("select count(*) from videos").fetchone() == (1,)
     assert con.execute("select version_num from alembic_version").fetchone() == (
-        "0003_drop_plaintext_password",
+        "0004_analysis_error_code",
     )
     con.close()
 
@@ -171,6 +171,38 @@ def test_interrupted_analyses_are_marked_failed(client, monkeypatch):
     data = client.get(f"/analysis/{analysis_id}", headers=alice).json()
     assert data["status"] == "failed"
     assert "tekrar yükle" in data["data"]["feedback"]
+    assert data["data"]["error_code"] == "analysis_interrupted"
+
+
+def test_failed_analysis_reports_a_code_the_app_can_translate(client, monkeypatch):
+    def _too_short(*_args, **_kwargs):
+        raise ai_analyzer.AnalysisError(
+            "Video too short: 1.0s", status_code=422, code="video_too_short"
+        )
+
+    monkeypatch.setattr(ai_analyzer, "analyze_video", _too_short)
+    _, alice = _signup(client, "alice@example.com")
+    analysis_id = _upload(client, alice).json()["data"]["analysis_id"]
+
+    data = client.get(f"/analysis/{analysis_id}", headers=alice).json()
+    assert data["status"] == "failed"
+    assert data["data"]["error_code"] == "video_too_short"
+    # Older app versions still get the Turkish text, and no internals.
+    assert data["data"]["feedback"] == ai_analyzer.TOO_SHORT_MESSAGE
+    assert "1.0s" not in str(data)
+
+
+def test_unexpected_failures_get_the_generic_code(client, monkeypatch):
+    def _crash(*_args, **_kwargs):
+        raise RuntimeError("/srv/secret/path exploded")
+
+    monkeypatch.setattr(ai_analyzer, "analyze_video", _crash)
+    _, alice = _signup(client, "alice@example.com")
+    analysis_id = _upload(client, alice).json()["data"]["analysis_id"]
+
+    data = client.get(f"/analysis/{analysis_id}", headers=alice).json()
+    assert data["data"]["error_code"] == "analysis_failed"
+    assert "secret" not in str(data)
 
 
 # --- Video retention ------------------------------------------------------

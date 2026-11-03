@@ -83,6 +83,7 @@ Map<String, dynamic> resultPayload({
   int score = 90,
   int reps = 2,
   List<String> errors = const [],
+  List<String> warningCodes = const [],
   String exerciseType = 'squat',
 }) {
   return {
@@ -105,6 +106,7 @@ Map<String, dynamic> resultPayload({
       'min_knee_angle': 76.0,
       'knee_range_of_motion': 85.0,
       'errors': errors,
+      'warning_codes': warningCodes,
       'created_at': '2026-10-26T08:15:00',
       'details': {'total_frames': 332},
     },

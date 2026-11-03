@@ -1,3 +1,4 @@
+import '../l10n/analysis_messages.dart';
 import '../l10n/app_localizations.dart';
 
 enum ErrorKind {
@@ -21,12 +22,14 @@ enum ErrorKind {
 /// Error with a user-safe message in the current language.
 ///
 /// The backend answers in Turkish; its `detail` is shown only for Turkish
-/// and never for 5xx responses (those may describe internals).
+/// and never for 5xx responses (those may describe internals). A failed
+/// analysis also carries a [code], which is shown in either language.
 class AppException implements Exception {
   final ErrorKind kind;
   final String? serverDetail;
+  final String? code;
 
-  const AppException(this.kind, [this.serverDetail]);
+  const AppException(this.kind, [this.serverDetail, this.code]);
 
   factory AppException.fromStatus(int status, [String? detail]) {
     final kind = switch (status) {
@@ -45,6 +48,8 @@ class AppException implements Exception {
   }
 
   String message(AppLocalizations l10n) {
+    final known = analysisFailureText(l10n, code);
+    if (known != null) return known;
     final detail = serverDetail;
     if (detail != null &&
         detail.isNotEmpty &&

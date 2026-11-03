@@ -107,3 +107,35 @@ def test_low_frame_rate_still_analyzes_but_warns(monkeypatch, video):
 def test_unusably_low_frame_rate_stops(monkeypatch, video):
     analysis = _analysis(metrics={"fps": 3.0, "total_frames": 33, "reported_frame_count": 33})
     _stops_with(monkeypatch, video, analysis, ai_analyzer.UNREADABLE_MESSAGE)
+
+
+@pytest.mark.parametrize(
+    ("metrics", "code"),
+    [
+        ({"total_frames": 18, "duration_seconds": 0.6}, "video_unreadable"),
+        ({"total_frames": 30, "reported_frame_count": 30, "duration_seconds": 1.0},
+         "video_too_short"),
+        ({"quality": {"usable_landmark_frame_ratio": 0.41}}, "body_out_of_frame"),
+    ],
+)
+def test_stops_carry_a_code_the_app_translates(monkeypatch, video, metrics, code):
+    with pytest.raises(ai_analyzer.AnalysisError) as exc_info:
+        _run(monkeypatch, video, _analysis(metrics=metrics))
+    assert exc_info.value.code == code
+    assert exc_info.value.user_message == ai_analyzer.FAILURE_MESSAGES[code]
+
+
+def test_soft_warnings_come_with_codes(monkeypatch, video):
+    analysis = _analysis(metrics={
+        "fps": 8.0, "total_frames": 90, "reported_frame_count": 90,
+        "quality": {"usable_landmark_frame_ratio": 0.7},
+        "camera_warning_codes": ["camera_too_far"],
+    })
+    result = _run(monkeypatch, video, analysis)
+    assert result["warning_codes"] == [
+        "camera_too_far", "body_partly_out_of_frame", "low_frame_rate",
+    ]
+
+
+def test_good_video_has_no_warning_codes(monkeypatch, video):
+    assert _run(monkeypatch, video, _analysis())["warning_codes"] == []

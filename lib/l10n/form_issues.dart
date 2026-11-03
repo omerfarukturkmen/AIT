@@ -25,10 +25,11 @@ FormIssue formIssue(AppLocalizations l10n, String code) {
       l10n.issueTooDeepFix,
     ),
     'too_fast' => FormIssue(l10n.issueTooFast, l10n.issueTooFastFix),
-    'incomplete_rep' || 'no_completed_reps' => FormIssue(
+    'incomplete_rep' => FormIssue(
       l10n.issueIncompleteRep,
       l10n.issueIncompleteRepFix,
     ),
+    'no_completed_reps' => FormIssue(l10n.issueNoReps, l10n.issueNoRepsFix),
     'torso_lean' || 'excessive_forward_lean' => FormIssue(
       l10n.issueTorsoLean,
       l10n.issueTorsoLeanFix,

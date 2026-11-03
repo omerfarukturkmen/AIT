@@ -22,6 +22,9 @@ class AnalysisResult {
   /// Analyzer codes such as `insufficient_depth` or `elbows_flared`.
   final List<String> issueCodes;
 
+  /// Recording-quality warnings such as `low_frame_rate`.
+  final List<String> warningCodes;
+
   const AnalysisResult({
     required this.id,
     required this.createdAt,
@@ -36,7 +39,12 @@ class AnalysisResult {
     required this.averageMinKneeAngle,
     required this.kneeRangeOfMotion,
     required this.issueCodes,
+    this.warningCodes = const [],
   });
+
+  /// False when no repetition was finished: there was nothing to score, so
+  /// [score] is meaningless and is left out of averages.
+  bool get isScored => validReps + invalidReps > 0 || repetitionCount > 0;
 
   factory AnalysisResult.fromBackend(BackendAnalysisResponse response) {
     return AnalysisResult(
@@ -56,6 +64,7 @@ class AnalysisResult {
       averageMinKneeAngle: response.averageMinKneeAngle,
       kneeRangeOfMotion: response.kneeRangeOfMotion,
       issueCodes: response.errors.toSet().toList(),
+      warningCodes: response.warningCodes.toSet().toList(),
     );
   }
 

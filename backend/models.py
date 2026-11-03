@@ -109,3 +109,6 @@ class AnalysisResult(Base):
     completed_at = Column(DateTime)
     # Full response payload of a completed analysis (JSON).
     result_json = Column(Text)
+    # Why a failed analysis failed (e.g. "video_too_short"); the app shows
+    # it in the user's language. feedback holds the Turkish text.
+    error_code = Column(String)

@@ -91,7 +91,13 @@ class _AnalysisProgressPageState extends State<AnalysisProgressPage> {
       final tts = FlutterTts();
       await tts.setLanguage(settings.ttsLanguage);
       await tts.speak(
-        l10n.voiceResultSummary(result.score, result.repetitionCount, topIssue),
+        result.isScored
+            ? l10n.voiceResultSummary(
+                result.score,
+                result.repetitionCount,
+                topIssue,
+              )
+            : l10n.resultNotScoredBody,
       );
     } catch (_) {
       // Voice is optional.

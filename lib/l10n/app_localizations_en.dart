@@ -104,6 +104,61 @@ class AppLocalizationsEn extends AppLocalizations {
       'The video couldn\'t be analyzed. Try a clear video that shows your whole body.';
 
   @override
+  String get analysisErrorNoPerson =>
+      'Your body wasn\'t clearly visible in the video. Keep the phone steady, get your whole body in frame and record again in good light.';
+
+  @override
+  String get analysisErrorUnreadable =>
+      'The video couldn\'t be opened or is incomplete. The file may be damaged; record it again with your phone\'s camera and upload it.';
+
+  @override
+  String get analysisErrorTooShort =>
+      'The video is too short. Upload a video of at least 2 seconds with at least one full repetition.';
+
+  @override
+  String get analysisErrorBodyOutOfFrame =>
+      'Part of your body (usually your feet or knees) was out of frame. Move the phone back so you\'re visible from head to toe.';
+
+  @override
+  String get analysisErrorUnsupported =>
+      'This exercise can\'t be analyzed yet.';
+
+  @override
+  String get analysisErrorUnsuitable =>
+      'The video couldn\'t be read or isn\'t suitable for analysis. Upload a clear, short video.';
+
+  @override
+  String get analysisErrorUnavailable =>
+      'The analysis service isn\'t ready right now. Please try again later.';
+
+  @override
+  String get analysisErrorInterrupted =>
+      'The analysis was interrupted because the server restarted. Please upload the video again.';
+
+  @override
+  String get warningTitle => 'About this recording';
+
+  @override
+  String get warningCameraTooFar =>
+      'The camera was too far away; move a little closer next time.';
+
+  @override
+  String get warningCameraTooClose =>
+      'The camera was too close; step back a little next time.';
+
+  @override
+  String get warningLowPoseConfidence =>
+      'Your body wasn\'t clearly detected at times; make sure your whole body is in frame.';
+
+  @override
+  String get warningBodyPartlyOut =>
+      'Your body wasn\'t fully visible in some frames; keep that in mind when reading the results.';
+
+  @override
+  String get warningLowFrameRate =>
+      'The video\'s frame rate is low, so the results may be less reliable.';
+
+  @override
   String get errorServer =>
       'Something went wrong on our side. Please try again.';
 
@@ -375,6 +430,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get issueGenericFix => 'Repeat the movement slowly and with control.';
+
+  @override
+  String get issueNoReps => 'No completed repetition was found.';
+
+  @override
+  String get issueNoRepsFix =>
+      'Complete the movement fully at least once and make sure the camera sees your whole body.';
 
   @override
   String get issueNoneTitle => 'No clear form issues found.';
@@ -827,6 +889,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get resultScoreCaption => 'form score';
+
+  @override
+  String get resultNotScored => 'Not scored';
+
+  @override
+  String get resultNotScoredBody =>
+      'No completed repetition was found in the video, so it wasn\'t scored. Complete the movement fully at least once and try again.';
 
   @override
   String get resultReps => 'Reps';

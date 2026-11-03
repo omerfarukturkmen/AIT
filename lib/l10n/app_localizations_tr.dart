@@ -105,6 +105,60 @@ class AppLocalizationsTr extends AppLocalizations {
       'Video analiz edilemedi. Tüm vücudunun göründüğü net bir video dene.';
 
   @override
+  String get analysisErrorNoPerson =>
+      'Videoda vücudun net görünmedi. Telefonu sabitle, tüm vücudun kadrajda olsun ve iyi ışıkta tekrar çek.';
+
+  @override
+  String get analysisErrorUnreadable =>
+      'Video açılamadı ya da eksik. Dosya bozuk olabilir; telefonunun kamerasıyla yeniden çekip tekrar yükle.';
+
+  @override
+  String get analysisErrorTooShort =>
+      'Video çok kısa. En az 2 saniyelik ve en az bir tam tekrar içeren bir video yükle.';
+
+  @override
+  String get analysisErrorBodyOutOfFrame =>
+      'Vücudunun bir kısmı (çoğunlukla ayaklar veya dizler) kadraj dışında kaldı. Telefonu biraz uzaklaştır, baştan ayağa görünecek şekilde çek.';
+
+  @override
+  String get analysisErrorUnsupported => 'Bu hareket henüz analiz edilemiyor.';
+
+  @override
+  String get analysisErrorUnsuitable =>
+      'Video okunamadı veya analiz için uygun değil. Net ve kısa bir video yükle.';
+
+  @override
+  String get analysisErrorUnavailable =>
+      'Analiz servisi şu an hazır değil. Biraz sonra tekrar dene.';
+
+  @override
+  String get analysisErrorInterrupted =>
+      'Analiz yarıda kaldı çünkü sunucu yeniden başlatıldı. Videoyu tekrar yükle.';
+
+  @override
+  String get warningTitle => 'Kayıt hakkında';
+
+  @override
+  String get warningCameraTooFar =>
+      'Kamera çok uzaktaydı; bir dahaki sefere biraz yaklaş.';
+
+  @override
+  String get warningCameraTooClose =>
+      'Kamera çok yakındı; bir dahaki sefere biraz uzaklaş.';
+
+  @override
+  String get warningLowPoseConfidence =>
+      'Vücudun bazı anlarda net algılanamadı; tüm vücudunun kadrajda olduğundan emin ol.';
+
+  @override
+  String get warningBodyPartlyOut =>
+      'Vücudun bazı karelerde tam görünmedi; sonuçları buna göre değerlendir.';
+
+  @override
+  String get warningLowFrameRate =>
+      'Videonun kare hızı düşük; sonuçlar daha az güvenilir olabilir.';
+
+  @override
   String get errorServer => 'Sunucuda bir hata oluştu. Lütfen tekrar dene.';
 
   @override
@@ -374,6 +428,13 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get issueGenericFix => 'Hareketi yavaş ve kontrollü tekrarla.';
+
+  @override
+  String get issueNoReps => 'Tamamlanmış tekrar bulunamadı.';
+
+  @override
+  String get issueNoRepsFix =>
+      'Hareketi en az bir kez baştan sona tamamla ve kameranın tüm vücudunu gördüğünden emin ol.';
 
   @override
   String get issueNoneTitle => 'Belirgin bir form hatası bulunmadı.';
@@ -827,6 +888,13 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get resultScoreCaption => 'form puanı';
+
+  @override
+  String get resultNotScored => 'Puanlanamadı';
+
+  @override
+  String get resultNotScoredBody =>
+      'Videoda tamamlanmış bir tekrar bulunamadı, bu yüzden puan verilmedi. Hareketi en az bir kez baştan sona tamamlayıp tekrar dene.';
 
   @override
   String get resultReps => 'Tekrar';

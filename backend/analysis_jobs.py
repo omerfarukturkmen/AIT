@@ -42,6 +42,12 @@ SAFE_ANALYSIS_ERRORS = {
     "Lütfen net ve kısa bir video yükleyin.",
     503: "Analiz servisi şu an hazır değil. Lütfen daha sonra tekrar dene.",
 }
+# Codes for the generic texts above, so the app can localize them too.
+SAFE_ANALYSIS_ERROR_CODES = {
+    400: "exercise_unsupported",
+    422: "video_unsuitable",
+    503: "analysis_unavailable",
+}
 ANALYSIS_FAILED = "Analiz sırasında beklenmeyen bir hata oluştu. Lütfen tekrar deneyin."
 ANALYSIS_INTERRUPTED = (
     "Analiz yarıda kaldı çünkü sunucu yeniden başlatıldı. "
@@ -97,6 +103,7 @@ def build_payload(
             "invalid_reps": result.get("invalid_reps", 0),
             "analysis_status": "completed",
             "camera_warnings": result.get("camera_warnings", []),
+            "warning_codes": result.get("warning_codes", []),
             "errors": result["errors"],
             "feedback": result["feedback"],
             "average_motion": average_motion,
@@ -120,9 +127,12 @@ def build_payload(
     }
 
 
-def _fail(analysis: models.AnalysisResult, message: str) -> None:
+def _fail(
+    analysis: models.AnalysisResult, message: str, code: str = "analysis_failed"
+) -> None:
     analysis.status = "failed"
     analysis.feedback = message
+    analysis.error_code = code
     analysis.completed_at = utcnow()
 
 
@@ -155,6 +165,8 @@ def run_analysis(analysis_id: int) -> None:
                 analysis,
                 exc.user_message
                 or SAFE_ANALYSIS_ERRORS.get(exc.status_code, ANALYSIS_FAILED),
+                exc.code
+                or SAFE_ANALYSIS_ERROR_CODES.get(exc.status_code, "analysis_failed"),
             )
         except Exception:
             logger.error("Unexpected analysis error id=%s\n%s", analysis_id, traceback.format_exc())
@@ -174,7 +186,7 @@ def fail_interrupted_analyses() -> int:
             .all()
         )
         for analysis in stale:
-            _fail(analysis, ANALYSIS_INTERRUPTED)
+            _fail(analysis, ANALYSIS_INTERRUPTED, "analysis_interrupted")
         db.commit()
         if stale:
             logger.warning("marked %s interrupted analyses as failed", len(stale))

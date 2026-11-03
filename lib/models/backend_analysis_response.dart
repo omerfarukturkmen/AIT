@@ -24,6 +24,9 @@ class BackendAnalysisResponse {
   final String selectedSide;
   final List<String> errors;
   final List<String> cameraWarnings;
+
+  /// Codes for [cameraWarnings] (e.g. `low_frame_rate`); the app localizes them.
+  final List<String> warningCodes;
   final List<Map<String, dynamic>> repHistory;
   final Map<String, dynamic> details;
 
@@ -55,6 +58,7 @@ class BackendAnalysisResponse {
     required this.selectedSide,
     required this.errors,
     required this.cameraWarnings,
+    this.warningCodes = const [],
     required this.repHistory,
     required this.details,
     required this.averageMotion,
@@ -188,6 +192,7 @@ class BackendAnalysisResponse {
               .toString(),
       errors: asStringList(nested['errors']),
       cameraWarnings: asStringList(nested['camera_warnings']),
+      warningCodes: asStringList(nested['warning_codes']),
       repHistory: asRepHistory(nested['rep_history'] ?? details['rep_history']),
       details: details,
       averageMotion: asDouble(

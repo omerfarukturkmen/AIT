@@ -351,6 +351,7 @@ def _analysis_summary(analysis: models.AnalysisResult, video: models.Video) -> d
         "repetition_count": analysis.repetition_count,
         "feedback": analysis.feedback,
         "analysis_status": analysis.status,
+        "error_code": analysis.error_code,
         "created_at": analysis.created_at,
         "completed_at": analysis.completed_at,
     }

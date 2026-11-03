@@ -217,20 +217,36 @@ def _open_video_capture(
     return cap, fps, reported_frame_count
 
 
-def _build_camera_warnings(quality_stats: dict[str, Any], total_frames: int) -> list[str]:
-    warnings: list[str] = []
+# Stable codes the app localizes; the texts stay for reports and old clients.
+CAMERA_WARNING_TEXTS: dict[str, str] = {
+    "video_unreadable": "Video frame okunamadi.",
+    "camera_too_far": "Kamera cok uzakta; daha yakina gelin.",
+    "camera_too_close": "Kamera cok yakinda; biraz uzaklasin.",
+    "low_pose_confidence": "Pose guveni dusuk; vucudunuzun tamamini kadraja alin.",
+}
+
+
+def _camera_warning_codes(quality_stats: dict[str, Any], total_frames: int) -> list[str]:
     if total_frames <= 0:
-        return ["Video frame okunamadi."]
+        return ["video_unreadable"]
+    codes: list[str] = []
     far = quality_stats.get("camera_too_far_frames", 0)
     close = quality_stats.get("camera_too_close_frames", 0)
     low = quality_stats.get("low_confidence_frames", 0)
     if far / total_frames > 0.3:
-        warnings.append("Kamera cok uzakta; daha yakina gelin.")
+        codes.append("camera_too_far")
     if close / total_frames > 0.3:
-        warnings.append("Kamera cok yakinda; biraz uzaklasin.")
+        codes.append("camera_too_close")
     if low / total_frames > 0.4:
-        warnings.append("Pose guveni dusuk; vucudunuzun tamamini kadraja alin.")
-    return warnings
+        codes.append("low_pose_confidence")
+    return codes
+
+
+def _build_camera_warnings(quality_stats: dict[str, Any], total_frames: int) -> list[str]:
+    return [
+        CAMERA_WARNING_TEXTS[code]
+        for code in _camera_warning_codes(quality_stats, total_frames)
+    ]
 
 
 def _preview_enabled_from_env() -> bool:
@@ -297,7 +313,8 @@ def _assemble_pipeline_result(
     duration_seconds = (
         round(total_frames / fps, 3) if fps > 1e-3 else round(total_frames / 30.0, 3)
     )
-    camera_warnings = _build_camera_warnings(quality_stats, total_frames)
+    camera_warning_codes = _camera_warning_codes(quality_stats, total_frames)
+    camera_warnings = [CAMERA_WARNING_TEXTS[code] for code in camera_warning_codes]
 
     dominant_side = "unavailable"
     if selected_side_counts:
@@ -353,6 +370,7 @@ def _assemble_pipeline_result(
             "duration_seconds": duration_seconds,
             "fps": round(fps, 2),
             "camera_warnings": camera_warnings,
+            "camera_warning_codes": camera_warning_codes,
             "quality": quality_stats,
             "selected_side": dominant_side,
             "video_path": str(resolved_video),

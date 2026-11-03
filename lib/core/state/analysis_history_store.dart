@@ -46,14 +46,18 @@ class AnalysisHistoryStore {
 
   static int get totalAnalyses => results.value.length;
 
+  /// Analyses with a real score (unscored ones would pull averages to 0).
+  static Iterable<AnalysisResult> get _scored =>
+      results.value.where((r) => r.isScored);
+
   static int get averageScore {
-    final list = results.value;
+    final list = _scored.toList();
     if (list.isEmpty) return 0;
     return (list.fold<int>(0, (sum, r) => sum + r.score) / list.length).round();
   }
 
   static int get bestScore =>
-      results.value.fold<int>(0, (best, r) => r.score > best ? r.score : best);
+      _scored.fold<int>(0, (best, r) => r.score > best ? r.score : best);
 
   static AnalysisResult? get latestResult =>
       results.value.isEmpty ? null : results.value.first;
