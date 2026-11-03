@@ -95,76 +95,83 @@ abstract final class Radii {
 }
 
 abstract final class AppTheme {
-  static const Color brand = Color(0xFF7C5CFF);
+  /// Brand palette: near-black with a single volt (neon lime) accent. Status
+  /// colors (emerald / orange / red) stay distinct from the accent.
+  static const Color volt = Color(0xFFC6F432);
+  static const Color voltSoft = Color(0xFFE4FBA0);
+  static const Color ink = Color(0xFF0A0B0D);
+  static const Color brand = volt;
 
   static ThemeData dark() {
     const tokens = AppTokens(
-      surfaceRaised: Color(0xFF1A2130),
-      border: Color(0xFF262F40),
-      textSecondary: Color(0xFFA3ADBD),
-      textTertiary: Color(0xFF6E788A),
+      surfaceRaised: Color(0xFF1C1F24),
+      border: Color(0xFF272B31),
+      textSecondary: Color(0xFFA8AFB8),
+      textTertiary: Color(0xFF6F7782),
       success: Color(0xFF34D399),
-      warning: Color(0xFFFBBF24),
+      warning: Color(0xFFFB923C),
       danger: Color(0xFFF87171),
-      info: Color(0xFF38BDF8),
+      info: Color(0xFF60A5FA),
     );
     const scheme = ColorScheme(
       brightness: Brightness.dark,
-      primary: Color(0xFF8B6CFF),
-      onPrimary: Colors.white,
-      primaryContainer: Color(0xFF261E52),
-      onPrimaryContainer: Color(0xFFDAD2FF),
-      secondary: Color(0xFF38BDF8),
-      onSecondary: Color(0xFF04131C),
-      secondaryContainer: Color(0xFF261E52),
-      onSecondaryContainer: Color(0xFFDAD2FF),
+      primary: volt,
+      onPrimary: ink,
+      primaryContainer: Color(0xFF2A3410),
+      onPrimaryContainer: voltSoft,
+      secondary: volt,
+      onSecondary: ink,
+      secondaryContainer: Color(0xFF2A3410),
+      onSecondaryContainer: voltSoft,
       error: Color(0xFFF87171),
       onError: Color(0xFF2B0505),
-      surface: Color(0xFF121826),
-      onSurface: Color(0xFFF2F4F8),
-      onSurfaceVariant: Color(0xFFA3ADBD),
-      surfaceContainerHighest: Color(0xFF1A2130),
-      outline: Color(0xFF3A4458),
-      outlineVariant: Color(0xFF262F40),
-      inverseSurface: Color(0xFFF2F4F8),
-      onInverseSurface: Color(0xFF121826),
+      surface: Color(0xFF14161A),
+      onSurface: Color(0xFFF2F4F6),
+      onSurfaceVariant: Color(0xFFA8AFB8),
+      surfaceContainerHighest: Color(0xFF1C1F24),
+      outline: Color(0xFF3A3F47),
+      outlineVariant: Color(0xFF272B31),
+      inverseSurface: Color(0xFFF2F4F6),
+      onInverseSurface: Color(0xFF14161A),
     );
-    return _build(scheme, tokens, background: const Color(0xFF0B0F17));
+    return _build(scheme, tokens, background: ink);
   }
 
   static ThemeData light() {
     const tokens = AppTokens(
-      surfaceRaised: Color(0xFFF1F3F8),
-      border: Color(0xFFE2E6EE),
-      textSecondary: Color(0xFF4B5567),
-      textTertiary: Color(0xFF8792A5),
-      success: Color(0xFF15803D),
-      warning: Color(0xFFB45309),
+      surfaceRaised: Color(0xFFEEF0F3),
+      border: Color(0xFFE1E4E9),
+      textSecondary: Color(0xFF4B525C),
+      textTertiary: Color(0xFF858C96),
+      success: Color(0xFF047857),
+      warning: Color(0xFFC2410C),
       danger: Color(0xFFDC2626),
-      info: Color(0xFF0369A1),
+      info: Color(0xFF1D4ED8),
     );
+    // Volt is unreadable on white, so light mode uses black buttons with
+    // volt labels and a deeper lime for icons and tints.
     const scheme = ColorScheme(
       brightness: Brightness.light,
-      primary: Color(0xFF6243F0),
-      onPrimary: Colors.white,
-      primaryContainer: Color(0xFFEDE9FF),
-      onPrimaryContainer: Color(0xFF2C1A8C),
-      secondary: Color(0xFF0369A1),
+      primary: Color(0xFF0E1013),
+      onPrimary: volt,
+      primaryContainer: Color(0xFFE7F6BD),
+      onPrimaryContainer: Color(0xFF1F2A05),
+      secondary: Color(0xFF4D7C0F),
       onSecondary: Colors.white,
-      secondaryContainer: Color(0xFFEDE9FF),
-      onSecondaryContainer: Color(0xFF2C1A8C),
+      secondaryContainer: Color(0xFFE7F6BD),
+      onSecondaryContainer: Color(0xFF1F2A05),
       error: Color(0xFFDC2626),
       onError: Colors.white,
       surface: Colors.white,
-      onSurface: Color(0xFF0E1525),
-      onSurfaceVariant: Color(0xFF4B5567),
-      surfaceContainerHighest: Color(0xFFF1F3F8),
-      outline: Color(0xFFC7CDD9),
-      outlineVariant: Color(0xFFE2E6EE),
-      inverseSurface: Color(0xFF1A2130),
-      onInverseSurface: Color(0xFFF2F4F8),
+      onSurface: Color(0xFF0E1013),
+      onSurfaceVariant: Color(0xFF4B525C),
+      surfaceContainerHighest: Color(0xFFEEF0F3),
+      outline: Color(0xFFC9CED6),
+      outlineVariant: Color(0xFFE1E4E9),
+      inverseSurface: Color(0xFF1C1F24),
+      onInverseSurface: Color(0xFFF2F4F6),
     );
-    return _build(scheme, tokens, background: const Color(0xFFF5F6FA));
+    return _build(scheme, tokens, background: const Color(0xFFF4F5F7));
   }
 
   static ThemeData _build(

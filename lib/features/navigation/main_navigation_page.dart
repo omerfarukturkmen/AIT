@@ -4,25 +4,19 @@ import '../../app.dart';
 import '../../core/state/navigation_store.dart';
 import '../../core/theme/app_theme.dart';
 import '../../widgets/common.dart';
-import '../history/history_page.dart';
 import '../home/home_page.dart';
 import '../profile/profile_page.dart';
 import '../program/program_page.dart';
-import '../progress/progress_page.dart';
+import 'app_menu.dart';
 
-/// App shell: bottom navigation on phones, a side rail on wide screens.
+/// App shell: bottom navigation on phones, a side rail on wide screens, and
+/// the right-hand menu (progress, history, settings).
 class MainNavigationPage extends StatelessWidget {
   const MainNavigationPage({super.key});
 
   static const double _railBreakpoint = 840;
 
-  static const _pages = [
-    HomePage(),
-    ProgramPage(),
-    ProgressPage(),
-    HistoryPage(),
-    ProfilePage(),
-  ];
+  static const _pages = [HomePage(), ProgramPage(), ProfilePage()];
 
   @override
   Widget build(BuildContext context) {
@@ -34,8 +28,6 @@ class MainNavigationPage extends StatelessWidget {
         Icons.calendar_month_rounded,
         l10n.navProgram,
       ),
-      (Icons.insights_outlined, Icons.insights_rounded, l10n.navProgress),
-      (Icons.history_rounded, Icons.history_rounded, l10n.navHistory),
       (Icons.person_outline_rounded, Icons.person_rounded, l10n.navProfile),
     ];
 
@@ -48,6 +40,8 @@ class MainNavigationPage extends StatelessWidget {
 
         if (isWide) {
           return Scaffold(
+            key: NavigationStore.shellKey,
+            endDrawer: const AppMenuDrawer(),
             body: Row(
               children: [
                 NavigationRail(
@@ -78,6 +72,8 @@ class MainNavigationPage extends StatelessWidget {
         }
 
         return Scaffold(
+          key: NavigationStore.shellKey,
+          endDrawer: const AppMenuDrawer(),
           body: body,
           bottomNavigationBar: DecoratedBox(
             decoration: BoxDecoration(

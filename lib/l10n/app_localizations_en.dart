@@ -1268,4 +1268,112 @@ class AppLocalizationsEn extends AppLocalizations {
   String legalLastUpdated(String date) {
     return 'Last updated: $date';
   }
+
+  @override
+  String homeGreetingMorning(String name) {
+    return 'Good morning, $name';
+  }
+
+  @override
+  String homeGreetingEvening(String name) {
+    return 'Good evening, $name';
+  }
+
+  @override
+  String homeSubtitle(String date) {
+    return '$date · Let\'s take your form a step further today.';
+  }
+
+  @override
+  String homeHeroStreak(int count) {
+    return 'You\'ve done $count analyses this week. Keep it up!';
+  }
+
+  @override
+  String get menuTitle => 'Menu';
+
+  @override
+  String get menuOpen => 'Open menu';
+
+  @override
+  String get menuSubtitle => 'What would you like to do today?';
+
+  @override
+  String get menuProgressBody => 'Weight, measurements and BMI';
+
+  @override
+  String get menuHistoryBody => 'All your analyses';
+
+  @override
+  String get menuSettingsBody => 'Theme, language and account';
+
+  @override
+  String get progressMyDetails => 'My details';
+
+  @override
+  String get detailsTitle => 'Your details';
+
+  @override
+  String get detailsBody =>
+      'Used only for your personal calculations and stored only on this device.';
+
+  @override
+  String get sexLabel => 'Sex';
+
+  @override
+  String get sexFemale => 'Female';
+
+  @override
+  String get sexMale => 'Male';
+
+  @override
+  String get birthYearLabel => 'Birth year';
+
+  @override
+  String get bmiPersonalizeTitle => 'Your personal assessment';
+
+  @override
+  String get bmiPersonalizeBody =>
+      'Add your sex and birth year to get a body-fat estimate based on your sex.';
+
+  @override
+  String get bmiNeedHeight => 'Add your height to calculate your BMI.';
+
+  @override
+  String get bmiBodyFat => 'Estimated body fat';
+
+  @override
+  String bmiBodyFatFor(String sex) {
+    return 'for $sex';
+  }
+
+  @override
+  String bmiHealthyRange(String min, String max) {
+    return 'Healthy weight for your height: $min–$max kg';
+  }
+
+  @override
+  String get bmiMethodNote =>
+      'BMI uses the same formula for women and men. Body fat is estimated from sex and age (Deurenberg formula); it is not a measurement.';
+
+  @override
+  String get bmiAdultsOnly => 'The body-fat estimate applies to adults (18+).';
+
+  @override
+  String get bodyFatEssential => 'Essential fat';
+
+  @override
+  String get bodyFatAthletic => 'Athletic';
+
+  @override
+  String get bodyFatFitness => 'Fit';
+
+  @override
+  String get bodyFatAverage => 'Average';
+
+  @override
+  String get bodyFatHigh => 'High';
+
+  @override
+  String get detailsSaved => 'Your details were saved.';
 }

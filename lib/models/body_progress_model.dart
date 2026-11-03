@@ -1,3 +1,9 @@
+/// Biological sex, used only for sex-specific body-composition estimates.
+enum Sex { female, male }
+
+/// Body-fat bands (American Council on Exercise).
+enum BodyFatBand { essential, athletic, fitness, average, high }
+
 /// Body measurement types the user can track (all in cm).
 enum MeasurementType { waist, hip, chest, arm, thigh }
 
@@ -51,6 +57,8 @@ class MeasurementEntry {
 class BodyProgress {
   final double? heightCm;
   final double? targetWeightKg;
+  final Sex? sex;
+  final int? birthYear;
 
   /// Sorted oldest first.
   final List<WeightEntry> weights;
@@ -59,6 +67,8 @@ class BodyProgress {
   const BodyProgress({
     this.heightCm,
     this.targetWeightKg,
+    this.sex,
+    this.birthYear,
     this.weights = const [],
     this.measurements = const [],
   });
@@ -95,6 +105,30 @@ class BodyProgress {
     return weight / (meters * meters);
   }
 
+  int? ageAt(DateTime now) {
+    final year = birthYear;
+    return year == null ? null : now.year - year;
+  }
+
+  /// Estimated body-fat percentage from BMI, age and sex (Deurenberg et al.,
+  /// 1991). Only meaningful for adults; null when anything is missing.
+  double? bodyFatPercent(DateTime now) {
+    final bmi = this.bmi;
+    final age = ageAt(now);
+    final sex = this.sex;
+    if (bmi == null || age == null || sex == null || age < 18) return null;
+    final male = sex == Sex.male ? 1 : 0;
+    return (1.2 * bmi + 0.23 * age - 10.8 * male - 5.4).clamp(2.0, 70.0);
+  }
+
+  /// Weight range for a BMI of 18.5-24.9 at the user's height.
+  (double min, double max)? get healthyWeightRange {
+    final height = heightCm;
+    if (height == null || height <= 0) return null;
+    final meters2 = (height / 100) * (height / 100);
+    return (18.5 * meters2, 24.9 * meters2);
+  }
+
   /// First and latest value for each measurement type that has entries.
   Map<MeasurementType, (double first, double latest)> get measurementSummary {
     final result = <MeasurementType, (double, double)>{};
@@ -111,12 +145,16 @@ class BodyProgress {
   BodyProgress copyWith({
     double? heightCm,
     double? targetWeightKg,
+    Sex? sex,
+    int? birthYear,
     List<WeightEntry>? weights,
     List<MeasurementEntry>? measurements,
   }) {
     return BodyProgress(
       heightCm: heightCm ?? this.heightCm,
       targetWeightKg: targetWeightKg ?? this.targetWeightKg,
+      sex: sex ?? this.sex,
+      birthYear: birthYear ?? this.birthYear,
       weights: weights ?? this.weights,
       measurements: measurements ?? this.measurements,
     );
@@ -125,6 +163,8 @@ class BodyProgress {
   Map<String, Object?> toJson() => {
     'heightCm': heightCm,
     'targetWeightKg': targetWeightKg,
+    'sex': sex?.name,
+    'birthYear': birthYear,
     'weights': weights.map((w) => w.toJson()).toList(),
     'measurements': measurements.map((m) => m.toJson()).toList(),
   };
@@ -139,6 +179,8 @@ class BodyProgress {
     return BodyProgress(
       heightCm: number(json['heightCm']),
       targetWeightKg: number(json['targetWeightKg']),
+      sex: Sex.values.where((s) => s.name == json['sex']).firstOrNull,
+      birthYear: json['birthYear'] is int ? json['birthYear'] as int : null,
       weights: weights,
       measurements: [
         if (json['measurements'] is List)
@@ -147,4 +189,16 @@ class BodyProgress {
       ],
     );
   }
+}
+
+/// ACE body-fat band for a percentage; the cut-offs differ by sex.
+BodyFatBand bodyFatBand(double percent, Sex sex) {
+  final limits = sex == Sex.male
+      ? const [6.0, 14.0, 18.0, 25.0]
+      : const [14.0, 21.0, 25.0, 32.0];
+  if (percent < limits[0]) return BodyFatBand.essential;
+  if (percent < limits[1]) return BodyFatBand.athletic;
+  if (percent < limits[2]) return BodyFatBand.fitness;
+  if (percent < limits[3]) return BodyFatBand.average;
+  return BodyFatBand.high;
 }

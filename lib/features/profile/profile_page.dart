@@ -13,7 +13,6 @@ import '../../widgets/common.dart';
 import '../../widgets/page_scaffold.dart';
 import '../auth/verify_email_sheet.dart';
 import '../exercise_detail/exercise_detail_page.dart';
-import '../settings/settings_page.dart';
 import 'achievements.dart';
 
 class ProfilePage extends StatelessWidget {
@@ -31,16 +30,6 @@ class ProfilePage extends StatelessWidget {
             final user = session?.user;
             return PageScaffold(
               title: l10n.profileTitle,
-              actions: [
-                IconButton(
-                  key: const Key('open_settings'),
-                  tooltip: l10n.settingsTitle,
-                  icon: const Icon(Icons.settings_outlined),
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const SettingsPage()),
-                  ),
-                ),
-              ],
               children: [
                 if (user != null) _ProfileHeader(user: user),
                 const SizedBox(height: Gap.md),
