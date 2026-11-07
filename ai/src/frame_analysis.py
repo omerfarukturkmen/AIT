@@ -375,6 +375,7 @@ def analyze_frame(
             show_preview=session.show_preview,
             frame=frame,
             last_analysis=session.last_analysis,
+            world_landmarks=detection.world_landmarks,
         )
         side = frame_out.get("selected_side")
         if side:

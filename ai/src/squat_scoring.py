@@ -55,6 +55,7 @@ _DEPTH_STATUS_SCORES: dict[str, float] = {
 _KNEE_TOO_DEEP_BASE_PENALTY = 40.0
 _KNEE_TOO_DEEP_PER_DEGREE = 2.0
 _KNEE_TOO_FAST_PENALTY = 25.0
+_KNEE_TRACKING_PENALTY = 50.0
 _KNEE_INSUFFICIENT_PENALTY = 35.0
 
 # Torso posture bands aligned with TORSO_LEAN_THRESHOLD / EXCESSIVE_TORSO_LEAN
@@ -129,6 +130,8 @@ class SquatRepScoreInput:
     completed_full_cycle: bool = False
     errors: tuple[str, ...] = ()
     usable: bool = True
+    # Front-camera 3D angles read deeper than 2D side-view ones.
+    too_deep_angle: float = TOO_DEEP_KNEE_ANGLE
 
     @classmethod
     def from_mapping(cls, raw: Mapping[str, Any]) -> SquatRepScoreInput:
@@ -178,6 +181,7 @@ class SquatRepScoreInput:
             completed_full_cycle=completed,
             errors=errors,
             usable=bool(usable),
+            too_deep_angle=_as_float(raw.get("too_deep_angle")) or TOO_DEEP_KNEE_ANGLE,
         )
 
 
@@ -225,14 +229,17 @@ def score_knee_control_component(rep: SquatRepScoreInput) -> float:
     score = 100.0
     error_set = set(rep.errors)
 
-    if rep.min_knee_angle is not None and rep.min_knee_angle < TOO_DEEP_KNEE_ANGLE:
-        deficit = TOO_DEEP_KNEE_ANGLE - float(rep.min_knee_angle)
+    if rep.min_knee_angle is not None and rep.min_knee_angle < rep.too_deep_angle:
+        deficit = rep.too_deep_angle - float(rep.min_knee_angle)
         score -= _KNEE_TOO_DEEP_BASE_PENALTY + deficit * _KNEE_TOO_DEEP_PER_DEGREE
     elif "too_deep_or_unstable" in error_set:
         score -= _KNEE_TOO_DEEP_BASE_PENALTY
 
     if "too_fast" in error_set:
         score -= _KNEE_TOO_FAST_PENALTY
+
+    if "knee_valgus" in error_set or "knee_lateral_shift" in error_set:
+        score -= _KNEE_TRACKING_PENALTY
 
     if (
         "knee_angle_insufficient" in error_set

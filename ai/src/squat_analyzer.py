@@ -9,6 +9,7 @@ from typing import Any
 import cv2
 
 from angle_utils import build_squat_frame_metrics, get_landmark_point
+from frontal_view import FrontalSquatTracker, knee_tracking_errors
 
 # --- Hysteresis knee-angle thresholds (degrees) ---
 STANDING_ENTER = 155.0
@@ -94,7 +95,18 @@ ERROR_MESSAGES: dict[str, str] = {
     "torso_lean": "Ust govdeni fazla one egme.",
     "excessive_forward_lean": "Keep your chest more upright",
     "hip_flexion_mismatch": "Bend at the hips as you descend",
+    "knee_valgus": "Dizlerini iceri kapatma, ayak parmaklarinla ayni yone it.",
+    "knee_lateral_shift": "Dizlerin bir yana kayiyor, agirligini iki ayagina esit ver.",
 }
+
+# Knee-tracking errors (front camera) make the rep count as faulty even when
+# depth was reached: they are injury-risk form breaks, not style issues.
+REP_INVALIDATING_ERRORS = frozenset({"knee_valgus", "knee_lateral_shift"})
+KNEE_TRACKING_CONFIRM_FRAMES = 3
+# Calibrated 3D angles (front camera) sweep ~1.4x the 2D side-view range for
+# the same movement, so the same tempo reads ~1.4x faster in deg/s.
+FRONTAL_SPEED_SCALE = 1.4
+FRONTAL_TOO_DEEP_KNEE_ANGLE = 45.0
 
 
 class SquatAnalyzer:
@@ -102,6 +114,10 @@ class SquatAnalyzer:
 
     def __init__(self, fps: float = 30.0) -> None:
         self.fps: float = fps if fps and fps > 1e-3 else 30.0
+        self.frontal_tracker = FrontalSquatTracker()
+        self.fast_deg_per_sec: float = FAST_DEG_PER_SEC
+        self.too_deep_knee_angle: float = TOO_DEEP_KNEE_ANGLE
+        self._knee_tracking_streaks: dict[str, int] = {}
 
         self.rep_count: int = 0
         self.valid_reps: int = 0
@@ -336,6 +352,7 @@ class SquatAnalyzer:
         self._too_fast_streak = 0
         self._torso_lean_latched = False
         self._too_fast_latched = False
+        self._knee_tracking_streaks = {}
         self.rep_start_knee_angle = None
         self.rep_start_hip_angle = None
         self.reached_depth = False
@@ -468,6 +485,7 @@ class SquatAnalyzer:
         self._ascending_after_depth = False
         self._torso_lean_latched = False
         self._too_fast_latched = False
+        self._knee_tracking_streaks = {}
         self.rep_counted = False
         self.incomplete_rep_recorded = False
         self.entered_ascent = False
@@ -761,7 +779,7 @@ class SquatAnalyzer:
             frame_delta = abs(float(smoothed) - self._prev_smoothed)
             if frame_delta <= MAX_SINGLE_FRAME_JUMP:
                 deg_per_sec = frame_delta * self.fps
-                if deg_per_sec >= FAST_DEG_PER_SEC:
+                if deg_per_sec >= self.fast_deg_per_sec:
                     self._too_fast_streak += 1
                 else:
                     self._too_fast_streak = 0
@@ -774,7 +792,7 @@ class SquatAnalyzer:
             else:
                 self._too_fast_streak = 0
 
-        if float(smoothed) < TOO_DEEP_KNEE_ANGLE and self._confirmed_state == "bottom":
+        if float(smoothed) < self.too_deep_knee_angle and self._confirmed_state == "bottom":
             self._register_error("too_deep_or_unstable")
 
         if torso_lean is not None and torso_lean >= TORSO_LEAN_THRESHOLD:
@@ -788,6 +806,20 @@ class SquatAnalyzer:
             self._register_error("torso_lean")
             self._torso_lean_latched = True
 
+    def _check_knee_tracking(self, tracking: Any, smoothed: float) -> None:
+        """Front-camera knee valgus / lateral shift, confirmed over frames."""
+        if not isinstance(tracking, dict):
+            return
+        seen = set(knee_tracking_errors(tracking, smoothed))
+        for code in ("knee_valgus", "knee_lateral_shift"):
+            if code in seen:
+                streak = self._knee_tracking_streaks.get(code, 0) + 1
+                self._knee_tracking_streaks[code] = streak
+                if streak >= KNEE_TRACKING_CONFIRM_FRAMES:
+                    self._register_error(code)
+            else:
+                self._knee_tracking_streaks[code] = 0
+
     def _finalize_rep_errors(self, min_angle: float | None) -> None:
         if min_angle is None:
             if self.descent_started:
@@ -796,7 +828,7 @@ class SquatAnalyzer:
         if min_angle >= INSUFFICIENT_DEPTH_ANGLE:
             self._register_error("insufficient_depth")
             self._register_error("knee_angle_insufficient")
-        if min_angle < TOO_DEEP_KNEE_ANGLE:
+        if min_angle < self.too_deep_knee_angle:
             self._register_error("too_deep_or_unstable")
 
     def _append_rep_history(
@@ -823,6 +855,7 @@ class SquatAnalyzer:
                 "valid": valid,
                 "errors": list(self._rep_errors),
                 "feedback": list(messages),
+                "too_deep_angle": self.too_deep_knee_angle,
                 "duration_seconds": round(duration, 3),
                 "depth_status": self.current_rep_best_depth_status,
                 "depth_score": self.current_rep_depth_score,
@@ -860,12 +893,22 @@ class SquatAnalyzer:
         self._last_return_angle = return_angle
         messages: list[str] = []
         valid = self._can_count_valid_rep()
+        form_blocked = valid and bool(
+            REP_INVALIDATING_ERRORS.intersection(self._rep_errors)
+        )
 
         self._apply_depth_rep_completion_feedback(messages)
         self._finalize_rep_depth_summary()
         depth_feedback = list(messages)
 
-        if valid:
+        if form_blocked:
+            # Deep enough, but the knees broke form: a counted, faulty rep.
+            valid = False
+            self.rep_counted = True
+            self.depth_valid = True
+            self.last_depth_status = "good_depth"
+            messages = self._errors_to_feedback(self._rep_errors)
+        elif valid:
             self.rep_counted = True
             self.depth_valid = True
             self.last_depth_status = "good_depth"
@@ -1050,7 +1093,7 @@ class SquatAnalyzer:
             for r in self.rep_history
             if r.get("min_knee_angle") is not None
         ]
-        ever_too_deep = any(float(m) < TOO_DEEP_KNEE_ANGLE for m in mins)
+        ever_too_deep = any(float(m) < self.too_deep_knee_angle for m in mins)
         if not ever_too_deep:
             self._session_errors = [
                 e for e in self._session_errors if e != "too_deep_or_unstable"
@@ -1483,6 +1526,7 @@ class SquatAnalyzer:
                 self._reached_valid_depth = True
                 self._rep_bottom_frame = self.frame_index
             self._check_in_rep_form(float(smoothed), torso_lean)
+            self._check_knee_tracking(knee_angles.get("frontal_tracking"), float(smoothed))
 
         self._update_form_evaluation(knee_angles, torso_lean)
         self._update_depth_evaluation(knee_angles, torso_lean)
@@ -1665,6 +1709,7 @@ def process_squat_frame(
     show_preview: bool = False,
     frame: object | None = None,
     last_analysis: dict[str, Any] | None = None,
+    world_landmarks: Any = None,
 ) -> dict[str, Any]:
     """Run one squat frame through metrics + analyzer (existing behavior).
 
@@ -1674,6 +1719,30 @@ def process_squat_frame(
     squat_metrics = build_squat_frame_metrics(
         landmarks, pose_landmarks_enum, image_width, image_height
     )
+    frontal = analyzer.frontal_tracker.update(
+        landmarks, world_landmarks, image_width, image_height
+    )
+    if frontal is not None:
+        analyzer.fast_deg_per_sec = FAST_DEG_PER_SEC * FRONTAL_SPEED_SCALE
+        analyzer.too_deep_knee_angle = FRONTAL_TOO_DEEP_KNEE_ANGLE
+        # Front camera: 2D angles stay near-straight, use calibrated 3D ones.
+        squat_metrics.update(
+            {
+                "left": frontal["left"],
+                "right": frontal["right"],
+                "average": frontal["average"],
+                "left_knee": frontal["left"],
+                "right_knee": frontal["right"],
+                "avg_knee": frontal["average"],
+                "left_hip": frontal["left_hip"],
+                "right_hip": frontal["right_hip"],
+                "avg_hip": frontal["avg_hip"],
+                "selected_hip": frontal["avg_hip"],
+                "selected_side": "frontal",
+                "frontal_tracking": frontal["tracking"],
+                "metrics_valid": squat_metrics.get("torso_lean") is not None,
+            }
+        )
     side = str(squat_metrics.get("selected_side") or "unavailable")
     result: dict[str, Any] = {
         "selected_side": side,

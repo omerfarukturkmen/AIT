@@ -40,6 +40,8 @@ _ERROR_SEVERITY: dict[str, float] = {
     "too_fast": 8.0,
     "incomplete_rep": 12.0,
     "torso_lean": 10.0,
+    "knee_valgus": 18.0,
+    "knee_lateral_shift": 16.0,
 }
 
 

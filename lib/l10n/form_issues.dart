@@ -34,6 +34,14 @@ FormIssue formIssue(AppLocalizations l10n, String code) {
       l10n.issueTorsoLean,
       l10n.issueTorsoLeanFix,
     ),
+    'knee_valgus' => FormIssue(
+      l10n.issueKneeValgus,
+      l10n.issueKneeValgusFix,
+    ),
+    'knee_lateral_shift' => FormIssue(
+      l10n.issueKneeShift,
+      l10n.issueKneeShiftFix,
+    ),
     'hip_flexion_mismatch' => FormIssue(
       l10n.issueHipHinge,
       l10n.issueHipHingeFix,

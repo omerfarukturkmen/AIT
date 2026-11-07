@@ -82,6 +82,8 @@ class FeedbackCode:
     SQUAT_TORSO_LEAN = "SQUAT_TORSO_LEAN"
     SQUAT_EXCESSIVE_FORWARD_LEAN = "SQUAT_EXCESSIVE_FORWARD_LEAN"
     SQUAT_HIP_FLEXION_MISMATCH = "SQUAT_HIP_FLEXION_MISMATCH"
+    SQUAT_KNEE_VALGUS = "SQUAT_KNEE_VALGUS"
+    SQUAT_KNEE_LATERAL_SHIFT = "SQUAT_KNEE_LATERAL_SHIFT"
     SQUAT_GOOD_DEPTH = "SQUAT_GOOD_DEPTH"
     SQUAT_READY = "SQUAT_READY"
 
@@ -109,6 +111,8 @@ ANALYZER_KEY_TO_CODE: dict[str, str] = {
     "torso_lean": FeedbackCode.SQUAT_TORSO_LEAN,
     "excessive_forward_lean": FeedbackCode.SQUAT_EXCESSIVE_FORWARD_LEAN,
     "hip_flexion_mismatch": FeedbackCode.SQUAT_HIP_FLEXION_MISMATCH,
+    "knee_valgus": FeedbackCode.SQUAT_KNEE_VALGUS,
+    "knee_lateral_shift": FeedbackCode.SQUAT_KNEE_LATERAL_SHIFT,
     # Push-up issue / incomplete keys
     "hips_sagging": FeedbackCode.PUSHUP_HIPS_SAGGING,
     "hips_too_high": FeedbackCode.PUSHUP_HIPS_TOO_HIGH,
@@ -145,6 +149,8 @@ FEEDBACK_IMPORTANCE: dict[str, int] = {
     FeedbackCode.PUSHUP_HIPS_SAGGING: 78,
     FeedbackCode.PUSHUP_BACK_BENT: 76,
     FeedbackCode.SQUAT_TORSO_LEAN: 75,
+    FeedbackCode.SQUAT_KNEE_VALGUS: 84,
+    FeedbackCode.SQUAT_KNEE_LATERAL_SHIFT: 83,
     FeedbackCode.SQUAT_EXCESSIVE_FORWARD_LEAN: 75,
     FeedbackCode.PUSHUP_HIPS_TOO_HIGH: 74,
     FeedbackCode.SQUAT_HIP_FLEXION_MISMATCH: 68,

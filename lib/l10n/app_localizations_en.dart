@@ -378,6 +378,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get issueHipHingeFix => 'Start the descent by pushing your hips back.';
 
   @override
+  String get issueKneeValgus => 'Your knees caved inward.';
+
+  @override
+  String get issueKneeValgusFix => 'Push your knees out so they track over your toes.';
+
+  @override
+  String get issueKneeShift => 'Your knees drifted to one side.';
+
+  @override
+  String get issueKneeShiftFix => 'Keep your weight even on both feet and your knees centered.';
+
+  @override
   String get issueHipsSagging => 'Your hips sagged.';
 
   @override

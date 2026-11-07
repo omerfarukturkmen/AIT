@@ -375,6 +375,18 @@ class AppLocalizationsTr extends AppLocalizations {
   String get issueHipHingeFix => 'İnişe kalçanı geriye iterek başla.';
 
   @override
+  String get issueKneeValgus => 'Dizlerin içeri çöktü.';
+
+  @override
+  String get issueKneeValgusFix => 'Dizlerini ayak parmaklarınla aynı yöne, hafif dışarı it.';
+
+  @override
+  String get issueKneeShift => 'Dizlerin bir yana kaydı.';
+
+  @override
+  String get issueKneeShiftFix => 'Ağırlığını iki ayağına eşit dağıt, dizlerini ortada tut.';
+
+  @override
   String get issueHipsSagging => 'Kalçan aşağı düştü.';
 
   @override

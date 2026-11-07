@@ -185,6 +185,7 @@ def _process_pushup_frame(
     _ = pose_landmarks_enum
     # last_analysis / effective_fps are squat-oriented; ignore if present.
     kwargs.pop("last_analysis", None)
+    kwargs.pop("world_landmarks", None)
     kwargs.pop("effective_fps", None)
     out = process_pushup_frame(
         analyzer,

@@ -764,6 +764,30 @@ abstract class AppLocalizations {
   /// **'İnişe kalçanı geriye iterek başla.'**
   String get issueHipHingeFix;
 
+  /// No description provided for @issueKneeValgus.
+  ///
+  /// In tr, this message translates to:
+  /// **'Dizlerin içeri çöktü.'**
+  String get issueKneeValgus;
+
+  /// No description provided for @issueKneeValgusFix.
+  ///
+  /// In tr, this message translates to:
+  /// **'Dizlerini ayak parmaklarınla aynı yöne, hafif dışarı it.'**
+  String get issueKneeValgusFix;
+
+  /// No description provided for @issueKneeShift.
+  ///
+  /// In tr, this message translates to:
+  /// **'Dizlerin bir yana kaydı.'**
+  String get issueKneeShift;
+
+  /// No description provided for @issueKneeShiftFix.
+  ///
+  /// In tr, this message translates to:
+  /// **'Ağırlığını iki ayağına eşit dağıt, dizlerini ortada tut.'**
+  String get issueKneeShiftFix;
+
   /// No description provided for @issueHipsSagging.
   ///
   /// In tr, this message translates to:
