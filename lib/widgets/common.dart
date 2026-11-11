@@ -51,15 +51,20 @@ class StatTile extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 20, color: context.tokens.textSecondary),
-            const SizedBox(height: Gap.sm),
+            Icon(icon, size: 18, color: context.colors.secondary),
+            const SizedBox(height: Gap.md),
           ],
           Text(
             value,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: context.text.headlineSmall?.copyWith(color: valueColor),
+            style: context.text.displaySmall?.copyWith(
+              fontSize: 30,
+              height: 1,
+              color: valueColor,
+            ),
           ),
+          const SizedBox(height: 4),
           const SizedBox(height: 2),
           Text(
             label,
@@ -253,7 +258,8 @@ class _RingPainter extends CustomPainter {
       old.progress != progress || old.color != color || old.track != track;
 }
 
-/// App logo mark (black tile with a volt dumbbell).
+/// App logo: the AIT kettlebell on lime (assets/brand/ait_icon.png, drawn from
+/// assets/brand/ait_icon.svg).
 class BrandMark extends StatelessWidget {
   final double size;
 
@@ -262,27 +268,49 @@ class BrandMark extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ExcludeSemantics(
-      child: Container(
+      child: Image.asset(
+        'assets/brand/ait_icon.png',
         width: size,
         height: size,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(size * 0.28),
-          border: Border.all(
-            color: AppTheme.volt.withValues(alpha: 0.6),
-            width: size > 40 ? 1.5 : 1,
-          ),
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF22262C), AppTheme.ink],
-          ),
-        ),
-        child: Icon(
-          Icons.fitness_center_rounded,
-          color: AppTheme.volt,
-          size: size * 0.52,
-        ),
+        filterQuality: FilterQuality.medium,
       ),
+    );
+  }
+}
+
+/// The AIT COACH wordmark in the logo's typeface. On dark backgrounds
+/// "COACH" is lime, as in the logo; on light ones it follows the text color.
+class Wordmark extends StatelessWidget {
+  final double size;
+  final bool showCoach;
+
+  const Wordmark({super.key, this.size = 22, this.showCoach = true});
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final base = TextStyle(
+      fontFamily: AppTheme.displayFont,
+      fontSize: size,
+      height: 1,
+      letterSpacing: size * 0.03,
+      color: context.colors.onSurface,
+    );
+    return Text.rich(
+      TextSpan(
+        text: 'AIT',
+        children: [
+          if (showCoach)
+            TextSpan(
+              text: ' COACH',
+              style: TextStyle(
+                color: dark ? AppTheme.lime : context.colors.onSurface,
+              ),
+            ),
+        ],
+      ),
+      semanticsLabel: showCoach ? 'AIT Coach' : 'AIT',
+      style: base,
     );
   }
 }

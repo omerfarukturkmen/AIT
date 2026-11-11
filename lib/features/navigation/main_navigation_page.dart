@@ -44,27 +44,29 @@ class MainNavigationPage extends StatelessWidget {
             endDrawer: const AppMenuDrawer(),
             body: Row(
               children: [
-                NavigationRail(
-                  selectedIndex: index,
-                  onDestinationSelected: (i) =>
-                      NavigationStore.go(AppTab.values[i]),
-                  labelType: NavigationRailLabelType.all,
-                  backgroundColor: context.colors.surface,
-                  indicatorColor: context.colors.primaryContainer,
-                  leading: const Padding(
-                    padding: EdgeInsets.symmetric(vertical: Gap.lg),
-                    child: BrandMark(size: 40),
+                Theme(
+                  data: _navTheme(),
+                  child: NavigationRail(
+                    selectedIndex: index,
+                    onDestinationSelected: (i) =>
+                        NavigationStore.go(AppTab.values[i]),
+                    labelType: NavigationRailLabelType.all,
+                    backgroundColor: AppTheme.ink,
+                    indicatorColor: AppTheme.lime,
+                    leading: const Padding(
+                      padding: EdgeInsets.symmetric(vertical: Gap.lg),
+                      child: BrandMark(size: 40),
+                    ),
+                    destinations: [
+                      for (final (icon, selectedIcon, label) in destinations)
+                        NavigationRailDestination(
+                          icon: Icon(icon),
+                          selectedIcon: Icon(selectedIcon),
+                          label: Text(label),
+                        ),
+                    ],
                   ),
-                  destinations: [
-                    for (final (icon, selectedIcon, label) in destinations)
-                      NavigationRailDestination(
-                        icon: Icon(icon),
-                        selectedIcon: Icon(selectedIcon),
-                        label: Text(label),
-                      ),
-                  ],
                 ),
-                const VerticalDivider(width: 1),
                 Expanded(child: body),
               ],
             ),
@@ -75,11 +77,11 @@ class MainNavigationPage extends StatelessWidget {
           key: NavigationStore.shellKey,
           endDrawer: const AppMenuDrawer(),
           body: body,
-          bottomNavigationBar: DecoratedBox(
-            decoration: BoxDecoration(
-              border: Border(top: BorderSide(color: context.tokens.border)),
-            ),
+          bottomNavigationBar: Theme(
+            data: _navTheme(),
             child: NavigationBar(
+              backgroundColor: AppTheme.ink,
+              indicatorColor: AppTheme.lime,
               selectedIndex: index,
               onDestinationSelected: (i) =>
                   NavigationStore.go(AppTab.values[i]),
@@ -97,4 +99,43 @@ class MainNavigationPage extends StatelessWidget {
       },
     );
   }
+}
+
+/// Navigation is always black with a lime pill, as in the logo, in both
+/// light and dark mode.
+ThemeData _navTheme() {
+  final dark = AppTheme.dark();
+  const muted = Color(0xFF8E8E93);
+  return dark.copyWith(
+    navigationBarTheme: dark.navigationBarTheme.copyWith(
+      backgroundColor: AppTheme.ink,
+      indicatorColor: AppTheme.lime,
+      iconTheme: WidgetStateProperty.resolveWith(
+        (states) => IconThemeData(
+          color: states.contains(WidgetState.selected) ? AppTheme.ink : muted,
+        ),
+      ),
+      labelTextStyle: WidgetStateProperty.resolveWith(
+        (states) => TextStyle(
+          fontSize: 12,
+          fontWeight: states.contains(WidgetState.selected)
+              ? FontWeight.w700
+              : FontWeight.w500,
+          color: states.contains(WidgetState.selected) ? Colors.white : muted,
+        ),
+      ),
+    ),
+    navigationRailTheme: dark.navigationRailTheme.copyWith(
+      backgroundColor: AppTheme.ink,
+      indicatorColor: AppTheme.lime,
+      selectedIconTheme: const IconThemeData(color: AppTheme.ink),
+      unselectedIconTheme: const IconThemeData(color: muted),
+      selectedLabelTextStyle: const TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.w700,
+        color: Colors.white,
+      ),
+      unselectedLabelTextStyle: const TextStyle(fontSize: 12, color: muted),
+    ),
+  );
 }

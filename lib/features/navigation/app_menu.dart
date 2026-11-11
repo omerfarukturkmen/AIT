@@ -102,8 +102,16 @@ class AppMenuDrawer extends StatelessWidget {
                 children: [
                   const BrandMark(size: 28),
                   const SizedBox(width: Gap.sm),
-                  Text(l10n.appName, style: context.text.titleSmall),
-                  const Spacer(),
+                  // Shrinks instead of overflowing on narrow screens or large text.
+                  const Expanded(
+                    child: Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Wordmark(size: 16),
+                      ),
+                    ),
+                  ),
                   Text('v$appVersion', style: context.text.labelSmall),
                 ],
               ),
@@ -136,14 +144,14 @@ class _MenuHeader extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: Colors.black.withValues(alpha: 0.35),
-              border: Border.all(color: AppTheme.volt, width: 1.5),
+              border: Border.all(color: AppTheme.lime, width: 1.5),
             ),
             child: user == null
-                ? const Icon(Icons.person_rounded, color: AppTheme.volt)
+                ? const Icon(Icons.person_rounded, color: AppTheme.lime)
                 : Text(
                     user.initials,
                     style: context.text.titleMedium?.copyWith(
-                      color: AppTheme.volt,
+                      color: AppTheme.lime,
                     ),
                   ),
           ),

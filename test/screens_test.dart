@@ -15,6 +15,7 @@ import 'package:flutter_application_1/features/settings/settings_page.dart';
 import 'package:flutter_application_1/l10n/form_issues.dart';
 import 'package:flutter_application_1/models/analysis_result_model.dart';
 import 'package:flutter_application_1/widgets/common.dart';
+import 'package:flutter_application_1/widgets/page_scaffold.dart';
 import 'package:flutter_application_1/models/body_progress_model.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -122,7 +123,10 @@ void main() {
               expect(find.text(l10n.historyCount(3)), findsOneWidget);
             }
             if (page == 'progress') {
-              expect(find.text(l10n.bmiTitle), findsOneWidget);
+              expect(
+                find.text(displayUpper(l10n.bmiTitle, locale)),
+                findsOneWidget,
+              );
             }
             await tester.tap(find.byType(BackButton));
             await tester.pumpAndSettle();
@@ -163,6 +167,30 @@ void main() {
     setScreenSize(tester, _sizes['phone']!);
     await tester.pumpAndSettle();
     expect(find.byType(NavigationBar), findsOneWidget);
+  });
+
+  testWidgets('home shortcuts open history and progress', (tester) async {
+    setScreenSize(tester, _sizes['phone']!);
+    await tester.pumpWidget(wrapApp(const MainNavigationPage()));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.byKey(const Key('quick_history')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('quick_history')));
+    await tester.pumpAndSettle();
+    expect(find.text(trL10n.historyCount(3)), findsOneWidget);
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.byKey(const Key('quick_progress')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('quick_progress')));
+    await tester.pumpAndSettle();
+    expect(
+      find.text(displayUpper(trL10n.bmiTitle, const Locale('tr'))),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('unverified users see the verification banner', (tester) async {
@@ -240,7 +268,10 @@ void main() {
       wrapApp(ResultPage(result: result), locale: const Locale('en')),
     );
     await tester.pumpAndSettle();
-    expect(find.text(enL10n.warningTitle), findsOneWidget);
+    expect(
+      find.text(displayUpper(enL10n.warningTitle, const Locale('en'))),
+      findsOneWidget,
+    );
     expect(find.text(enL10n.warningLowFrameRate), findsOneWidget);
     expect(find.text('unknown_code'), findsNothing);
   });

@@ -12,7 +12,7 @@ class AppLocalizationsTr extends AppLocalizations {
   String get appName => 'AIT';
 
   @override
-  String get appTagline => 'Yapay zekâ destekli form analizi';
+  String get appTagline => 'Formunu ölç. Daha iyi kaldır.';
 
   @override
   String get commonCancel => 'Vazgeç';
@@ -691,7 +691,7 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get authHeroBody =>
-      'Videonu yükle, yapay zekâ tekrarlarını saysın ve formunu değerlendirsin.';
+      'Videonu yükle; tekrarlarını sayalım, formunu ölçelim.';
 
   @override
   String get authFeatureCaptureTitle => 'Kaydet veya yükle';
@@ -1013,7 +1013,7 @@ class AppLocalizationsTr extends AppLocalizations {
   String get homeLibrary => 'Egzersizler';
 
   @override
-  String get homeAiAnalysis => 'AI analizi';
+  String get homeAiAnalysis => 'Form analizi';
 
   @override
   String get historyTitle => 'Geçmiş';
@@ -1060,7 +1060,7 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get detailComingSoonBody =>
-      'Bu hareket için yapay zekâ analizi henüz hazır değil. Şimdilik squat ve şınav analiz edilebiliyor.';
+      'Bu hareketin analizi henüz hazır değil. Şimdilik squat ve şınav analiz edilebiliyor.';
 
   @override
   String get detailMuscles => 'Çalışan kaslar';
@@ -1354,7 +1354,13 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String homeHeroStreak(int count) {
-    return 'Bu hafta $count analiz yaptın, harika gidiyorsun!';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Bu hafta $count analiz yaptın, harika gidiyorsun!',
+      one: 'Bu hafta 1 analiz yaptın, harika gidiyorsun!',
+    );
+    return '$_temp0';
   }
 
   @override

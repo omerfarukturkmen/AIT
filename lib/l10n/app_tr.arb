@@ -1,7 +1,7 @@
 {
   "@@locale": "tr",
   "appName": "AIT",
-  "appTagline": "Yapay zekâ destekli form analizi",
+  "appTagline": "Formunu ölç. Daha iyi kaldır.",
   "commonCancel": "Vazgeç",
   "commonClose": "Kapat",
   "commonContinue": "Devam et",
@@ -261,7 +261,7 @@
   "authRegisterTitle": "Hesabını oluştur",
   "authRegisterSubtitle": "Analizlerin hesabına kaydedilir; ilerlemeni her cihazdan takip edebilirsin.",
   "authHeroTitle": "Her tekrarda\ndaha doğru form.",
-  "authHeroBody": "Videonu yükle, yapay zekâ tekrarlarını saysın ve formunu değerlendirsin.",
+  "authHeroBody": "Videonu yükle; tekrarlarını sayalım, formunu ölçelim.",
   "authFeatureCaptureTitle": "Kaydet veya yükle",
   "authFeatureCaptureBody": "Kamerayla kaydet ya da galeriden video seç.",
   "authFeatureFeedbackTitle": "Net geri bildirim",
@@ -439,7 +439,7 @@
   "homeEmptyBody": "İlk videonu analiz ettiğinde sonuçların burada görünecek.",
   "homeToday": "Bugünün programı",
   "homeLibrary": "Egzersizler",
-  "homeAiAnalysis": "AI analizi",
+  "homeAiAnalysis": "Form analizi",
   "historyTitle": "Geçmiş",
   "historyCount": "{count, plural, =1{1 analiz} other{{count} analiz}}",
   "@historyCount": {
@@ -463,7 +463,7 @@
   "historyNoMatchBody": "Başka bir filtre seç.",
   "detailFavorite": "Favorilere ekle",
   "detailUnfavorite": "Favorilerden çıkar",
-  "detailComingSoonBody": "Bu hareket için yapay zekâ analizi henüz hazır değil. Şimdilik squat ve şınav analiz edilebiliyor.",
+  "detailComingSoonBody": "Bu hareketin analizi henüz hazır değil. Şimdilik squat ve şınav analiz edilebiliyor.",
   "detailMuscles": "Çalışan kaslar",
   "detailMistakes": "Sık yapılan hatalar",
   "progressPageTitle": "Gelişim",
@@ -636,7 +636,7 @@
       }
     }
   },
-  "homeHeroStreak": "Bu hafta {count} analiz yaptın, harika gidiyorsun!",
+  "homeHeroStreak": "{count, plural, =1{Bu hafta 1 analiz yaptın, harika gidiyorsun!} other{Bu hafta {count} analiz yaptın, harika gidiyorsun!}}",
   "@homeHeroStreak": {
     "placeholders": {
       "count": {

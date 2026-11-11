@@ -95,19 +95,25 @@ abstract final class Radii {
 }
 
 abstract final class AppTheme {
-  /// Brand palette: near-black with a single volt (neon lime) accent. Status
-  /// colors (emerald / orange / red) stay distinct from the accent.
-  static const Color volt = Color(0xFFC6F432);
-  static const Color voltSoft = Color(0xFFE4FBA0);
-  static const Color ink = Color(0xFF0A0B0D);
-  static const Color brand = volt;
+  /// Brand palette from the AIT COACH logo: ink black, lime and white. Lime
+  /// marks actions and highlights; status colors (emerald / orange / red)
+  /// stay distinct from it.
+  static const Color lime = Color(0xFFD4FF00);
+  static const Color limeSoft = Color(0xFFEEFF99);
+  static const Color limeDeep = Color(0xFF4D6600);
+  static const Color ink = Color(0xFF0F0F10);
+  static const Color paper = Color(0xFFF2F2EE);
+  static const Color brand = lime;
+
+  /// Display font for the wordmark, headings and big numbers (bundled).
+  static const String displayFont = 'Anton';
 
   static ThemeData dark() {
     const tokens = AppTokens(
-      surfaceRaised: Color(0xFF1C1F24),
-      border: Color(0xFF272B31),
-      textSecondary: Color(0xFFA8AFB8),
-      textTertiary: Color(0xFF6F7782),
+      surfaceRaised: Color(0xFF222225),
+      border: Color(0xFF2C2C30),
+      textSecondary: Color(0xFFA1A1A6),
+      textTertiary: Color(0xFF6E6E73),
       success: Color(0xFF34D399),
       warning: Color(0xFFFB923C),
       danger: Color(0xFFF87171),
@@ -115,63 +121,100 @@ abstract final class AppTheme {
     );
     const scheme = ColorScheme(
       brightness: Brightness.dark,
-      primary: volt,
+      primary: lime,
       onPrimary: ink,
-      primaryContainer: Color(0xFF2A3410),
-      onPrimaryContainer: voltSoft,
-      secondary: volt,
+      primaryContainer: Color(0xFF2B3300),
+      onPrimaryContainer: limeSoft,
+      secondary: lime,
       onSecondary: ink,
-      secondaryContainer: Color(0xFF2A3410),
-      onSecondaryContainer: voltSoft,
+      secondaryContainer: Color(0xFF262A12),
+      onSecondaryContainer: Color(0xFFE6F59A),
       error: Color(0xFFF87171),
       onError: Color(0xFF2B0505),
-      surface: Color(0xFF14161A),
-      onSurface: Color(0xFFF2F4F6),
-      onSurfaceVariant: Color(0xFFA8AFB8),
-      surfaceContainerHighest: Color(0xFF1C1F24),
-      outline: Color(0xFF3A3F47),
-      outlineVariant: Color(0xFF272B31),
-      inverseSurface: Color(0xFFF2F4F6),
-      onInverseSurface: Color(0xFF14161A),
+      surface: Color(0xFF19191B),
+      onSurface: Colors.white,
+      onSurfaceVariant: Color(0xFFA1A1A6),
+      surfaceContainerHighest: Color(0xFF222225),
+      outline: Color(0xFF3F3F44),
+      outlineVariant: Color(0xFF2C2C30),
+      inverseSurface: Colors.white,
+      onInverseSurface: ink,
     );
     return _build(scheme, tokens, background: ink);
   }
 
   static ThemeData light() {
     const tokens = AppTokens(
-      surfaceRaised: Color(0xFFEEF0F3),
-      border: Color(0xFFE1E4E9),
-      textSecondary: Color(0xFF4B525C),
-      textTertiary: Color(0xFF858C96),
+      surfaceRaised: Color(0xFFEAEAE5),
+      border: Color(0xFFDEDED8),
+      textSecondary: Color(0xFF5F5F63),
+      textTertiary: Color(0xFF8E8E93),
       success: Color(0xFF047857),
       warning: Color(0xFFC2410C),
       danger: Color(0xFFDC2626),
       info: Color(0xFF1D4ED8),
     );
-    // Volt is unreadable on white, so light mode uses black buttons with
-    // volt labels and a deeper lime for icons and tints.
+    // Lime is unreadable on white: light mode uses black buttons with lime
+    // labels (as in the logo) and a deep olive for icons and tints.
     const scheme = ColorScheme(
       brightness: Brightness.light,
-      primary: Color(0xFF0E1013),
-      onPrimary: volt,
-      primaryContainer: Color(0xFFE7F6BD),
-      onPrimaryContainer: Color(0xFF1F2A05),
-      secondary: Color(0xFF4D7C0F),
+      primary: ink,
+      onPrimary: lime,
+      primaryContainer: Color(0xFFF1FFB0),
+      onPrimaryContainer: Color(0xFF2B3300),
+      secondary: limeDeep,
       onSecondary: Colors.white,
-      secondaryContainer: Color(0xFFE7F6BD),
-      onSecondaryContainer: Color(0xFF1F2A05),
+      secondaryContainer: Color(0xFFEEF7C4),
+      onSecondaryContainer: Color(0xFF2B3300),
       error: Color(0xFFDC2626),
       onError: Colors.white,
       surface: Colors.white,
-      onSurface: Color(0xFF0E1013),
-      onSurfaceVariant: Color(0xFF4B525C),
-      surfaceContainerHighest: Color(0xFFEEF0F3),
-      outline: Color(0xFFC9CED6),
-      outlineVariant: Color(0xFFE1E4E9),
-      inverseSurface: Color(0xFF1C1F24),
-      onInverseSurface: Color(0xFFF2F4F6),
+      onSurface: ink,
+      onSurfaceVariant: Color(0xFF5F5F63),
+      surfaceContainerHighest: Color(0xFFEAEAE5),
+      outline: Color(0xFFC7C7C1),
+      outlineVariant: Color(0xFFDEDED8),
+      inverseSurface: Color(0xFF222225),
+      onInverseSurface: Colors.white,
     );
-    return _build(scheme, tokens, background: const Color(0xFFF4F5F7));
+    return _build(scheme, tokens, background: paper);
+  }
+
+  /// For content on a lime panel (the logo's tile): black text, black
+  /// buttons with lime labels.
+  static ThemeData onLime() {
+    const tokens = AppTokens(
+      surfaceRaised: Color(0xFFC4EC00),
+      border: Color(0x330F0F10),
+      textSecondary: Color(0xFF2F3800),
+      textTertiary: Color(0xFF4A5500),
+      success: Color(0xFF065F46),
+      warning: Color(0xFF9A3412),
+      danger: Color(0xFFB91C1C),
+      info: Color(0xFF1E3A8A),
+    );
+    const scheme = ColorScheme(
+      brightness: Brightness.light,
+      primary: ink,
+      onPrimary: lime,
+      primaryContainer: ink,
+      onPrimaryContainer: lime,
+      secondary: ink,
+      onSecondary: lime,
+      secondaryContainer: Color(0xFFC4EC00),
+      onSecondaryContainer: ink,
+      error: Color(0xFFB91C1C),
+      onError: Colors.white,
+      surface: lime,
+      onSurface: ink,
+      onSurfaceVariant: Color(0xFF2F3800),
+      surfaceContainerHighest: Color(0xFFC4EC00),
+      outline: ink,
+      outlineVariant: Color(0x330F0F10),
+      inverseSurface: ink,
+      onInverseSurface: lime,
+    );
+    return _build(scheme, tokens, background: lime);
   }
 
   static ThemeData _build(
@@ -360,21 +403,24 @@ abstract final class AppTheme {
     final primary = scheme.onSurface;
     return base.copyWith(
       displaySmall: base.displaySmall?.copyWith(
+        fontFamily: displayFont,
         fontSize: 32,
-        fontWeight: FontWeight.w700,
-        letterSpacing: -0.8,
+        fontWeight: FontWeight.w400,
+        letterSpacing: 0.3,
         color: primary,
       ),
       headlineMedium: base.headlineMedium?.copyWith(
+        fontFamily: displayFont,
         fontSize: 26,
-        fontWeight: FontWeight.w700,
-        letterSpacing: -0.5,
+        fontWeight: FontWeight.w400,
+        letterSpacing: 0.3,
         color: primary,
       ),
       headlineSmall: base.headlineSmall?.copyWith(
+        fontFamily: displayFont,
         fontSize: 22,
-        fontWeight: FontWeight.w700,
-        letterSpacing: -0.3,
+        fontWeight: FontWeight.w400,
+        letterSpacing: 0.3,
         color: primary,
       ),
       titleLarge: base.titleLarge?.copyWith(
