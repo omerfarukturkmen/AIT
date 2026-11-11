@@ -51,11 +51,13 @@ class HomePage extends StatelessWidget {
           subtitle: l10n.homeSubtitle(today),
           onRefresh: AnalysisHistoryStore.refresh,
           children: [
-            if (user != null && !user.emailVerified) ...[
-              const _VerifyEmailBanner(),
-              const SizedBox(height: Gap.lg),
-            ],
             const _NewAnalysisCard(),
+            const SizedBox(height: Gap.md),
+            const _QuickLinks(),
+            if (user != null && !user.emailVerified) ...[
+              const SizedBox(height: Gap.md),
+              const _VerifyEmailBanner(),
+            ],
             const _WeekSummary(),
             const _LatestAnalysis(),
             const _TodayPlan(),
@@ -74,14 +76,17 @@ class _VerifyEmailBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     return AppCard(
-      color: context.colors.primaryContainer.withValues(alpha: 0.5),
-      borderColor: context.colors.primary.withValues(alpha: 0.3),
+      padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.sm, Gap.sm, Gap.sm),
       child: Row(
         children: [
-          Icon(Icons.mark_email_unread_outlined, color: context.colors.primary),
+          Icon(
+            Icons.mark_email_unread_outlined,
+            size: 20,
+            color: context.tokens.warning,
+          ),
           const SizedBox(width: Gap.md),
           Expanded(
-            child: Text(l10n.homeVerifyEmail, style: context.text.bodyMedium),
+            child: Text(l10n.homeVerifyEmail, style: context.text.bodySmall),
           ),
           TextButton(
             onPressed: () => VerifyEmailSheet.show(context),
@@ -106,7 +111,7 @@ class _NewAnalysisCard extends StatelessWidget {
     return ValueListenableBuilder<ExerciseId>(
       valueListenable: SelectedExerciseStore.selectedExercise,
       builder: (context, selected, _) {
-        return HeroCard(
+        return LimeCard(
           child: Builder(
             builder: (context) => Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -118,10 +123,6 @@ class _NewAnalysisCard extends StatelessWidget {
                         l10n.homeNewAnalysis,
                         style: context.text.titleLarge,
                       ),
-                    ),
-                    Icon(
-                      Icons.auto_awesome_rounded,
-                      color: context.colors.primary,
                     ),
                   ],
                 ),
@@ -206,6 +207,66 @@ class _NewAnalysisCard extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// One-tap shortcuts to the places people look for most, so nothing is
+/// hidden behind the menu.
+class _QuickLinks extends StatelessWidget {
+  const _QuickLinks();
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final links = [
+      (
+        const Key('quick_history'),
+        Icons.history_rounded,
+        l10n.navHistory,
+        () => AppMenu.open(context, MenuPage.history),
+      ),
+      (
+        const Key('quick_progress'),
+        Icons.insights_rounded,
+        l10n.navProgress,
+        () => AppMenu.open(context, MenuPage.progress),
+      ),
+      (
+        const Key('quick_program'),
+        Icons.calendar_month_rounded,
+        l10n.navProgram,
+        () => NavigationStore.go(AppTab.program),
+      ),
+    ];
+    return Row(
+      children: [
+        for (final (i, (key, icon, label, onTap)) in links.indexed) ...[
+          if (i > 0) const SizedBox(width: Gap.md),
+          Expanded(
+            child: AppCard(
+              key: key,
+              onTap: onTap,
+              padding: const EdgeInsets.symmetric(
+                horizontal: Gap.sm,
+                vertical: Gap.md + 2,
+              ),
+              child: Column(
+                children: [
+                  IconBadge(icon: icon, size: 36),
+                  const SizedBox(height: Gap.sm),
+                  Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: context.text.labelLarge,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

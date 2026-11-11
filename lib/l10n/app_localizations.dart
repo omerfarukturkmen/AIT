@@ -107,7 +107,7 @@ abstract class AppLocalizations {
   /// No description provided for @appTagline.
   ///
   /// In tr, this message translates to:
-  /// **'Yapay zekâ destekli form analizi'**
+  /// **'Formunu ölç. Daha iyi kaldır.'**
   String get appTagline;
 
   /// No description provided for @commonCancel.
@@ -1337,7 +1337,7 @@ abstract class AppLocalizations {
   /// No description provided for @authHeroBody.
   ///
   /// In tr, this message translates to:
-  /// **'Videonu yükle, yapay zekâ tekrarlarını saysın ve formunu değerlendirsin.'**
+  /// **'Videonu yükle; tekrarlarını sayalım, formunu ölçelim.'**
   String get authHeroBody;
 
   /// No description provided for @authFeatureCaptureTitle.
@@ -1889,7 +1889,7 @@ abstract class AppLocalizations {
   /// No description provided for @homeAiAnalysis.
   ///
   /// In tr, this message translates to:
-  /// **'AI analizi'**
+  /// **'Form analizi'**
   String get homeAiAnalysis;
 
   /// No description provided for @historyTitle.
@@ -1949,7 +1949,7 @@ abstract class AppLocalizations {
   /// No description provided for @detailComingSoonBody.
   ///
   /// In tr, this message translates to:
-  /// **'Bu hareket için yapay zekâ analizi henüz hazır değil. Şimdilik squat ve şınav analiz edilebiliyor.'**
+  /// **'Bu hareketin analizi henüz hazır değil. Şimdilik squat ve şınav analiz edilebiliyor.'**
   String get detailComingSoonBody;
 
   /// No description provided for @detailMuscles.
@@ -2471,7 +2471,7 @@ abstract class AppLocalizations {
   /// No description provided for @homeHeroStreak.
   ///
   /// In tr, this message translates to:
-  /// **'Bu hafta {count} analiz yaptın, harika gidiyorsun!'**
+  /// **'{count, plural, =1{Bu hafta 1 analiz yaptın, harika gidiyorsun!} other{Bu hafta {count} analiz yaptın, harika gidiyorsun!}}'**
   String homeHeroStreak(int count);
 
   /// No description provided for @menuTitle.

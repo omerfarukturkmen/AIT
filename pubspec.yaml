@@ -35,3 +35,11 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   generate: true
+  assets:
+    - assets/brand/ait_icon.png
+  # Anton (SIL OFL 1.1, assets/fonts/OFL.txt): the AIT COACH wordmark,
+  # headings and big numbers.
+  fonts:
+    - family: Anton
+      fonts:
+        - asset: assets/fonts/Anton-Regular.ttf

@@ -12,7 +12,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get appName => 'AIT';
 
   @override
-  String get appTagline => 'AI-powered form analysis';
+  String get appTagline => 'Measure your form. Lift better.';
 
   @override
   String get commonCancel => 'Cancel';
@@ -692,7 +692,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get authHeroBody =>
-      'Upload a video and let the AI count your reps and assess your form.';
+      'Upload your video; we count your reps and measure your form.';
 
   @override
   String get authFeatureCaptureTitle => 'Record or upload';
@@ -1013,7 +1013,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get homeLibrary => 'Exercises';
 
   @override
-  String get homeAiAnalysis => 'AI analysis';
+  String get homeAiAnalysis => 'Form analysis';
 
   @override
   String get historyTitle => 'History';
@@ -1060,7 +1060,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get detailComingSoonBody =>
-      'AI analysis isn\'t available for this exercise yet. Squats and push-ups can be analyzed today.';
+      'Analysis for this exercise isn\'t ready yet. For now, squats and push-ups can be analyzed.';
 
   @override
   String get detailMuscles => 'Target muscles';
@@ -1355,7 +1355,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String homeHeroStreak(int count) {
-    return 'You\'ve done $count analyses this week. Keep it up!';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'You\'ve done $count analyses this week. Keep it up!',
+      one: 'You\'ve done 1 analysis this week. Keep it up!',
+    );
+    return '$_temp0';
   }
 
   @override

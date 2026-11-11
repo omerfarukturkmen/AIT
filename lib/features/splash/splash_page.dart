@@ -56,7 +56,7 @@ class _SplashPageState extends State<SplashPage> {
           children: [
             const BrandMark(size: 72),
             const SizedBox(height: Gap.lg),
-            Text(context.l10n.appName, style: context.text.headlineMedium),
+            const Wordmark(size: 34),
             const SizedBox(height: Gap.xs),
             Text(
               context.l10n.appTagline,

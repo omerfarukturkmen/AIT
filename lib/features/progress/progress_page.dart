@@ -151,13 +151,33 @@ class _WeightSection extends StatelessWidget {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text(_kg(current), style: context.text.displaySmall),
-                    const SizedBox(width: Gap.xs),
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: Text('kg', style: context.text.titleMedium),
+                    // Shrinks rather than overflowing next to the pill.
+                    Expanded(
+                      child: Align(
+                        alignment: AlignmentDirectional.bottomStart,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                _kg(current),
+                                style: context.text.displaySmall,
+                              ),
+                              const SizedBox(width: Gap.xs),
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 6),
+                                child: Text(
+                                  'kg',
+                                  style: context.text.titleMedium,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
-                    const Spacer(),
+                    const SizedBox(width: Gap.sm),
                     if (change != null && body.weights.length > 1)
                       Pill(
                         label: '${change > 0 ? '+' : ''}${_kg(change)} kg',

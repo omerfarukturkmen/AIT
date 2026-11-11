@@ -204,8 +204,13 @@ class _CompactBrand extends StatelessWidget {
       children: [
         const BrandMark(size: 36),
         const SizedBox(width: Gap.md),
-        Text(context.l10n.appName, style: context.text.titleLarge),
-        const Spacer(),
+        // Shrinks instead of overflowing on narrow screens or large text.
+        const Expanded(
+          child: Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: FittedBox(fit: BoxFit.scaleDown, child: Wordmark(size: 22)),
+          ),
+        ),
         const _LanguageButton(),
       ],
     );
@@ -260,8 +265,16 @@ class _BrandPanel extends StatelessWidget {
           children: [
             const BrandMark(size: 44),
             const SizedBox(width: Gap.md + 2),
-            Text(l10n.appName, style: context.text.headlineSmall),
-            const Spacer(),
+            // Shrinks instead of overflowing on narrow screens or large text.
+            const Expanded(
+              child: Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Wordmark(size: 26),
+                ),
+              ),
+            ),
             const _LanguageButton(),
           ],
         ),
